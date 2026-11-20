@@ -1,0 +1,31 @@
+# Copy to .github/workflows/sf-ai-dev-pipeline.yml in the project. [med] action versions: pin to current ones.
+name: sf-ai-dev-pipeline
+on: [pull_request]
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/setup-node@v4
+        with: {node-version: "20"}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "17"}
+      - run: pip install pyyaml
+      - name: Build gate (design sign-off)
+        run: python3 sf-ai-dev-pipeline/tools/gate_check.py --ci
+      - name: Ticket lint (G3)
+        run: python3 sf-ai-dev-pipeline/tools/ticket_lint.py --project . --quiet
+      - name: Definition of Done for the branch ticket (feature/<KEY>-...)
+        run: |
+          KEY=$(echo "${GITHUB_HEAD_REF}" | sed -nE 's#^[a-z]+/([A-Z]+-[0-9]+).*#\1#p')
+          if [ -n "$KEY" ]; then python3 sf-ai-dev-pipeline/tools/dev_cycle.py dod "$KEY"; else echo "no ticket key in branch name"; exit 1; fi
+      - name: Code Analyzer (Recommended + Project rules, block on Critical/High)
+        run: |
+          npm install -g @salesforce/cli
+          sf plugins install code-analyzer
+          python3 sf-ai-dev-pipeline/tools/rule_map.py inventory
+          python3 sf-ai-dev-pipeline/tools/rule_map.py coverage
+          sf code-analyzer run --workspace . --target force-app --rule-selector Recommended --rule-selector Project --config-file code-analyzer.yml --severity-threshold 2 --output-file code-analyzer.html

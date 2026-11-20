@@ -1,0 +1,149 @@
+{
+  "profile": "customer-facing",
+  "checks": {
+    "tests.no_seealldata": {
+      "pass": true,
+      "evidence": "code-analyzer.json"
+    },
+    "tests.all_assert": {
+      "pass": true,
+      "evidence": "code-analyzer.json"
+    },
+    "tests.coverage": {
+      "value": 81,
+      "evidence": "apex-test-run.json"
+    },
+    "tests.assert_message": {
+      "value": 62,
+      "evidence": "code-analyzer.json"
+    },
+    "tests.method_length": {
+      "value": 88,
+      "evidence": "code-analyzer.json"
+    },
+    "tests.bulk_trigger": {
+      "value": 40,
+      "evidence": "test inventory"
+    },
+    "tests.behavior_mapping": {
+      "level": 50,
+      "reason": "Main paths tested, no negative tests"
+    },
+    "automation.crud_fls": {
+      "pass": false,
+      "evidence": "3 true positives after triage"
+    },
+    "automation.no_limits_in_loop": {
+      "pass": true,
+      "evidence": "code-analyzer.json"
+    },
+    "automation.one_trigger_per_object": {
+      "value": 90,
+      "evidence": "inventory"
+    },
+    "automation.logic_in_handler": {
+      "value": 70,
+      "evidence": "inventory"
+    },
+    "automation.double_write_fields": {
+      "value": 2,
+      "evidence": "execution map"
+    },
+    "automation.flow_fault_paths": {
+      "value": 55,
+      "evidence": "flow scanner"
+    },
+    "automation.hardcoded_ids": {
+      "value": 1,
+      "evidence": "regex scan"
+    },
+    "automation.sharing_declared": {
+      "value": 96,
+      "evidence": "inventory"
+    },
+    "automation.error_logging": {
+      "level": 50,
+      "approved_by": "Reviewer 2026-11-20"
+    },
+    "tests.suite_runtime": {
+      "value": 18,
+      "evidence": "apex-test-run.json"
+    },
+    "tests.tiers": {
+      "level": 0,
+      "reason": "All tests use DML"
+    },
+    "design.formatting": {
+      "pass": true,
+      "evidence": "prettier"
+    },
+    "design.lwc_eslint": {
+      "pass": true,
+      "evidence": "code-analyzer.json"
+    },
+    "design.naming_conventions": {
+      "value": 84,
+      "evidence": "regex"
+    },
+    "design.naming_intent": {
+      "level": 50
+    },
+    "design.flag_params": {
+      "value": 92
+    },
+    "design.param_count": {
+      "value": 97
+    },
+    "design.method_size": {
+      "value": 78
+    },
+    "design.method_complexity": {
+      "value": 88
+    },
+    "design.nesting_depth": {
+      "value": 9
+    },
+    "design.commented_out_code": {
+      "value": 14
+    },
+    "design.comments_why": {
+      "level": 50
+    },
+    "design.guard_clauses": {
+      "level": 50
+    },
+    "design.trigger_boundary": {
+      "level": 0
+    },
+    "design.class_size": {
+      "value": 90
+    },
+    "design.class_responsibility": {
+      "level": 50
+    },
+    "design.layering": {
+      "value": 35
+    },
+    "design.coupling": {
+      "value": 91
+    },
+    "design.duplication": {
+      "value": 4
+    },
+    "design.di_seams": {
+      "level": 0
+    },
+    "design.magic_literals": {
+      "value": 22
+    },
+    "design.dead_code": {
+      "value": 6
+    },
+    "design.api_version": {
+      "value": 60
+    },
+    "design.single_logger": {
+      "value": 40
+    }
+  }
+}

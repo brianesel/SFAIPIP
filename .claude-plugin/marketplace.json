@@ -1,0 +1,11 @@
+{
+  "name": "sf-ai-dev-pipeline",
+  "owner": { "name": "SF AI development pipeline maintainers" },
+  "plugins": [
+    {
+      "name": "sf-ai-dev-pipeline",
+      "source": "./",
+      "description": "Guardrails, best practices and phase workflows for AI-assisted Salesforce development"
+    }
+  ]
+}

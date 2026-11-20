@@ -1,0 +1,21 @@
+# Well-Architected pillars (Salesforce, 5-pillar version, 2026). Scoring config.
+bands:            # score → band. Failed gate forces red.
+  green: 85
+  amber: 70
+min_scored_weight: 0.70   # below this share of weight scored → "Incomplete"
+verified_measured_share: 0.70  # measured share ≥ this → [verified], else [med]
+
+pillars:
+  trust:       {name: "Trust",                          weight: 30}
+  reliability: {name: "Reliability",                    weight: 25}
+  opex:        {name: "Operational Excellence",         weight: 20}
+  cost:        {name: "Resource and Cost Optimization", weight: 15}
+  fairness:    {name: "Fairness",                       weight: 10}
+
+# Targets per project type. [low] defaults until calibrated. na = pillar not scored.
+profiles:
+  internal-tool:   {trust: 85, reliability: 75, opex: 75, cost: 70, fairness: 60}
+  customer-facing: {trust: 90, reliability: 85, opex: 75, cost: 70, fairness: 80}
+  regulated:       {trust: 95, reliability: 90, opex: 85, cost: 70, fairness: 80}
+  agentic:         {trust: 95, reliability: 85, opex: 85, cost: 80, fairness: 90}
+  backend-only:    {trust: 90, reliability: 85, opex: 75, cost: 75, fairness: na}

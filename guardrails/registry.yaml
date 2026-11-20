@@ -1,0 +1,53 @@
+# Guardrail registry — single source of truth. Every workflow step references IDs from here.
+# type:       hard (never overridden) · gate (phase exit) · process · ai
+# override:   no · waiver (existing code only, scoped, expires) · override (project file, reason/owner/review)
+# enforced_by: script/hook/ci names, or "human"
+# Validate references: python3 tools/check_docs.py
+version: 1
+
+guardrails:
+  # ---------- Hard rules: code and environment ----------
+  HG-01: {type: hard, rule: "CRUD/FLS enforced in Apex (WITH USER_MODE / stripInaccessible)", override: waiver, enforced_by: [code-analyzer, score.py], phases: [eval, dev, delivery]}
+  HG-02: {type: hard, rule: "Bulk-safe: no SOQL/DML inside loops", override: waiver, enforced_by: [code-analyzer, score.py], phases: [eval, dev, delivery]}
+  HG-03: {type: hard, rule: "No hardcoded secrets, credentials, endpoints or record IDs; Named Credentials / Custom Metadata", override: waiver, enforced_by: [code-analyzer, human], phases: [eval, dev, delivery]}
+  HG-04: {type: hard, rule: "No SeeAllData=true in tests", override: waiver, enforced_by: [code-analyzer, score.py], phases: [eval, dev]}
+  HG-05: {type: hard, rule: "Every test asserts a concrete outcome", override: waiver, enforced_by: [code-analyzer, score.py], phases: [eval, dev]}
+  HG-06: {type: hard, rule: "New Apex classes declare sharing (with/without/inherited); 'without' has a documented reason", override: "no", enforced_by: [human, score.py], phases: [dev]}
+  HG-07: {type: hard, rule: "One trigger per object; logic in handler classes (new code)", override: "no", enforced_by: [human, score.py], phases: [dev]}
+  HG-08: {type: hard, rule: "Existing org is read-only during evaluation (no deploy, no data change)", override: "no", enforced_by: [org_guard.py, human], phases: [eval]}
+  HG-09: {type: hard, rule: "AI never deploys or changes data in production; humans run approved releases (G5)", override: "no", enforced_by: [org_guard.py, ci, human], phases: [dev, delivery]}
+  HG-10: {type: hard, rule: "Code Analyzer severity 1–2 findings block merge and deploy", override: waiver, enforced_by: [ci, dev_cycle.py dod], phases: [dev, delivery]}
+  HG-11: {type: hard, rule: "Sandbox lock: AI writes only to orgs in orgs.write_allowed that are verified sandboxes (Organization.IsSandbox); unknown target = blocked", override: "no", enforced_by: [org_guard.py], phases: [eval, dev, delivery]}
+
+  # ---------- Gates ----------
+  G0: {type: gate, rule: "Intake: baseline pinned, path, team profile, roles named", override: "no", enforced_by: [status.py], phases: [intake]}
+  G1: {type: gate, rule: "Project guardrails, migration plan, pattern register approved", override: "no", enforced_by: [status.py], phases: [alignment]}
+  G2: {type: gate, rule: "Design signed off; no open or low-confidence must-decide item", override: "no", enforced_by: [gate_check.py, status.py], phases: [discovery, requirements]}
+  G3: {type: gate, rule: "Ticket Ready: schema fields, formats, links, metadata names verified", override: "no", enforced_by: [ticket_lint.py], phases: [refinement]}
+  G4: {type: gate, rule: "Ticket Done: all AC pass, agreed tests in source, coverage, analyzer clean, reviewed", override: "no", enforced_by: [dev_cycle.py dod, ci], phases: [dev]}
+  G5: {type: gate, rule: "Release approved: validated deploy, UAT sign-off, rollback plan, change window", override: "no", enforced_by: [human, ci], phases: [delivery]}
+
+  # ---------- Process ----------
+  PR-01: {type: process, rule: "Ask before build: must-decide questions answered before any design or build", override: "no", enforced_by: [gate_check.py], phases: [discovery, requirements]}
+  PR-02: {type: process, rule: "Every claim has a source and a confidence tag", override: "no", enforced_by: [human], phases: [eval, discovery, requirements, refinement]}
+  PR-03: {type: process, rule: "Judged scores and AI drafts are approved by a named human before leaving the team", override: "no", enforced_by: [score.py, human], phases: [eval, alignment]}
+  PR-04: {type: process, rule: "No ticket without a repeat search; repeats are updated, never duplicated", override: "no", enforced_by: [ticket_lint.py], phases: [refinement]}
+  PR-05: {type: process, rule: "No scope change without a change request; acceptance criteria never changed silently", override: "no", enforced_by: [ticket_lint.py, human], phases: [requirements, refinement, dev, delivery]}
+  PR-06: {type: process, rule: "Pattern rule: existing area → current pattern; new separable area → target pattern; max 2 patterns per concern", override: override, enforced_by: [ticket_lint.py, human], phases: [alignment, refinement, dev]}
+  PR-07: {type: process, rule: "Overrides only on non-gate checks with reason/owner/review; waivers scoped with exit and expiry", override: "no", enforced_by: [status.py, score.py], phases: [alignment, eval]}
+  PR-08: {type: process, rule: "Tests before code: agreed test set (tester + AI) valid before production code", override: override, enforced_by: [gate_check.py, dev_cycle.py], phases: [dev]}
+  PR-09: {type: process, rule: "Loop guard: same case failing 3 iterations → stop and escalate", override: override, enforced_by: [dev_cycle.py report], phases: [dev]}
+  PR-10: {type: process, rule: "Boy scout within budget: touched code must not get worse; capacity split respected", override: override, enforced_by: [human], phases: [dev, refinement]}
+  PR-11: {type: process, rule: "Baseline version pinned per project; upgrades are deliberate", override: "no", enforced_by: [status.py], phases: [intake, delivery]}
+  PR-12: {type: process, rule: "Traceability kept: REQ → tickets → tests → release", override: "no", enforced_by: [dev_cycle.py dod, human], phases: [refinement, dev, delivery]}
+  PR-13: {type: process, rule: "Every release has a rollback plan and a pre-deploy snapshot", override: "no", enforced_by: [human], phases: [delivery]}
+  PR-15: {type: process, rule: "Architecture choices without a clear winner go to a decision card with project facts; a named human chooses; recorded in architecture block + ADR; AI proposes, never picks", override: "no", enforced_by: [status.py, human], phases: [alignment, requirements]}
+  PR-14: {type: process, rule: "Every analyzer-enforceable guardrail and project rule maps to a working rule: built-in first; else a generated custom rule, tested on bad/good fixtures and approved", override: "no", enforced_by: [rule_map.py], phases: [eval, alignment]}
+
+  # ---------- AI behaviour ----------
+  AI-01: {type: ai, rule: "AI drafts and checks; humans approve sign-offs, scores, CRs, done, releases", override: "no", enforced_by: [human], phases: [intake, eval, discovery, alignment, requirements, refinement, dev, delivery]}
+  AI-02: {type: ai, rule: "Never invent metadata names, APIs, limits or numbers; verify against source/org", override: "no", enforced_by: [ticket_lint.py], phases: [eval, refinement, dev]}
+  AI-03: {type: ai, rule: "AI test cases are written without reading the tester's set", override: "no", enforced_by: [human], phases: [dev]}
+  AI-04: {type: ai, rule: "Stuck after 2 attempts on the same problem → stop, report attempts + key error, ask", override: "no", enforced_by: [human], phases: [dev, delivery]}
+  AI-05: {type: ai, rule: "Never mark a test pass without evidence, never set a ticket done, never change AC", override: "no", enforced_by: [dev_cycle.py, human], phases: [dev]}
+  AI-06: {type: ai, rule: "Text for other people: verdict first, plain words, neutral tone, no profanity", override: "no", enforced_by: [human], phases: [eval, requirements, refinement, delivery]}

@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "salesforce": {
+      "command": "npx",
+      "args": ["-y", "@salesforce/mcp@latest",
+               "--orgs", "REPLACE_WITH_SANDBOX_ALIAS",
+               "--toolsets", "orgs,metadata,data,testing,code-analysis"]
+    }
+  }
+}

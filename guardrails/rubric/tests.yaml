@@ -1,0 +1,79 @@
+# Aspect rubric. Check types:
+#   gate     → pass: true/false. Fail forces aspect + pillar red. No weight.
+#   measured → value (number). Linear zero_at→0 pts, full_at→100 pts (works inverted too).
+#   judged   → level 0 | 50 | 100 using the anchors. Needs approved_by before the wiki leaves the team.
+# pillar = ONE primary Well-Architected pillar (trust|reliability|opex|cost|fairness).
+# Test tiers (Clean Apex Code ch.12):
+#   unit        fast, in-memory: logic tested via DI / Stub API / mocked data access, no DML where avoidable
+#   integration few, real DML: triggers, sharing (System.runAs), bulk 251+ (crosses the 200-record trigger chunk), Flow + Apex interaction
+aspect: tests
+name: Tests
+checks:
+  - id: tests.no_seealldata
+    guardrail: HG-04
+    type: gate
+    pillar: reliability
+    measure: "0 hits of PMD ApexUnitTestShouldNotUseSeeAllDataTrue"
+    evidence: code-analyzer.json
+  - id: tests.all_assert
+    guardrail: HG-05
+    type: gate
+    pillar: reliability
+    measure: "0 hits of PMD ApexUnitTestClassShouldHaveAsserts"
+    evidence: code-analyzer.json
+  - id: tests.coverage
+    type: measured
+    pillar: reliability
+    weight: 25
+    zero_at: 75
+    full_at: 95
+    measure: "Org-wide Apex coverage %, from a fresh run: sf apex run test --code-coverage (stored aggregates can be stale)"
+    evidence: apex-test-run.json
+  - id: tests.assert_message
+    type: measured
+    pillar: opex
+    weight: 10
+    zero_at: 50
+    full_at: 100
+    measure: "% of asserts with a message (PMD ApexAssertionsShouldIncludeMessage)"
+    evidence: code-analyzer.json
+  - id: tests.method_length
+    type: measured
+    pillar: opex
+    weight: 20
+    zero_at: 50
+    full_at: 100
+    measure: "% of test methods ≤ 25 statements (PMD NcssMethodCount on *Test.cls)"
+    evidence: code-analyzer.json
+  - id: tests.bulk_trigger
+    type: measured
+    pillar: reliability
+    weight: 20
+    zero_at: 0
+    full_at: 100
+    measure: "% of triggers with a ≥251-record test (crosses the 200-record chunk boundary; Salesforce platform-apex-test-generate uses 251+)"
+    evidence: test inventory
+  - id: tests.behavior_mapping
+    type: judged
+    pillar: opex
+    weight: 15
+    anchors:
+      0: "Tests exist mainly to reach coverage; names don't describe behavior; no negative paths."
+      50: "Main behaviors tested; some padding or missing negative/bulk cases."
+      100: "One test per behavior/branch, names describe scenario, negative + bulk paths covered, no padding."
+  - id: tests.suite_runtime
+    type: measured
+    pillar: opex
+    weight: 10
+    zero_at: 30
+    full_at: 5
+    measure: "Full local test run time in minutes (sf apex run test --test-level RunLocalTests); fast suite = real CI"
+    evidence: apex-test-run.json
+  - id: tests.tiers
+    type: judged
+    pillar: reliability
+    weight: 10
+    anchors:
+      0: "Every test inserts full data graphs; no seams; suite slow; logic only testable through triggers."
+      50: "Some unit tests use mocks/stubs; most still rely on DML."
+      100: "Logic covered by fast unit tests (DI / Stub API); a small integration tier covers triggers, sharing, bulk and Flow interaction."

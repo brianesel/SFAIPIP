@@ -1,0 +1,74 @@
+aspect: automation
+name: Automation (Apex + Flow)
+checks:
+  - id: automation.crud_fls
+    guardrail: HG-01
+    type: gate
+    pillar: trust
+    measure: "0 triaged true positives of PMD ApexCRUDViolation (USER_MODE / stripInaccessible missing)"
+    evidence: code-analyzer.json + triage note
+  - id: automation.no_limits_in_loop
+    guardrail: HG-02
+    type: gate
+    pillar: cost
+    measure: "0 SOQL/DML inside loops (PMD OperationWithLimitsInLoop) [med: rule name per PMD 7]"
+    evidence: code-analyzer.json
+  - id: automation.one_trigger_per_object
+    guardrail: HG-07
+    type: measured
+    pillar: opex
+    weight: 15
+    zero_at: 50
+    full_at: 100
+    measure: "% of objects with ≤ 1 Apex trigger"
+    evidence: metadata inventory
+  - id: automation.logic_in_handler
+    type: measured
+    pillar: opex
+    weight: 10
+    zero_at: 50
+    full_at: 100
+    measure: "% of triggers that only delegate to a handler class"
+    evidence: metadata inventory
+  - id: automation.double_write_fields
+    type: measured
+    pillar: reliability
+    weight: 20
+    zero_at: 5
+    full_at: 0
+    measure: "Count of fields written by both Flow and Apex on the same object (Execution Map)"
+    evidence: execution map
+  - id: automation.flow_fault_paths
+    type: measured
+    pillar: reliability
+    weight: 15
+    zero_at: 50
+    full_at: 100
+    measure: "% of DML/callout elements in active Flows with a fault path (Flow Scanner)"
+    evidence: code-analyzer.json (flow engine)
+  - id: automation.hardcoded_ids
+    guardrail: HG-03
+    type: measured
+    pillar: opex
+    weight: 10
+    zero_at: 10
+    full_at: 0
+    measure: "Count of hardcoded record IDs in Apex + Flow"
+    evidence: code-analyzer.json + regex scan
+  - id: automation.sharing_declared
+    guardrail: HG-06
+    type: measured
+    pillar: trust
+    weight: 15
+    zero_at: 80
+    full_at: 100
+    measure: "% of Apex classes declaring with/without/inherited sharing; 'without' needs a documented reason"
+    evidence: metadata inventory
+  - id: automation.error_logging
+    type: judged
+    pillar: reliability
+    weight: 15
+    anchors:
+      0: "Errors swallowed or only shown to the user; no log; nobody is alerted."
+      50: "Errors logged in some places; no consistent pattern or alerting."
+      100: "One logging pattern (Apex + Flow), failures alert an owner, retry or manual-fix path documented."

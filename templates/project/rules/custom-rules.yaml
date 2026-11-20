@@ -1,0 +1,90 @@
+# Project custom analyzer rules — drafted by AI from project_rules (guardrails.project.yaml), approved by the tech lead.
+# Flow: write spec here → tools/rule_map.py generate → test (bad must hit, good must not) → set approved_by → coverage.
+# engine: pmd (XPath on the Apex AST) | regex (any text file, incl. .flow-meta.xml). Flow engine has no custom rules.
+# Changing a spec invalidates its test result (hash) until `test` is run again.
+rules:
+  - id: NoFutureMethods
+    guardrail: PRJ-01
+    engine: pmd
+    intent: "New async Apex uses Queueable, not @future (pattern register: async)"
+    xpath: "//Method[ModifierNode/Annotation[@Name='Future']]"
+    message: "Use Queueable instead of @future (PRJ-01)"
+    severity: 2
+    approved_by: ""
+    tests:
+      bad: |
+        public with sharing class AsyncBad {
+            @future
+            public static void run() {}
+        }
+      good: |
+        public with sharing class AsyncGood implements Queueable {
+            public void execute(QueueableContext ctx) {}
+        }
+
+  - id: UseProjectLogger
+    guardrail: PRJ-02
+    engine: regex
+    intent: "Use the project Logger class, not System.debug"
+    regex: "/System\\.debug\\s*\\(/gi"
+    file_extensions: [".cls", ".trigger"]
+    message: "System.debug found; use Logger (PRJ-02)"
+    severity: 3
+    approved_by: ""
+    tests:
+      bad: |
+        public with sharing class LogBad { public static void a() { System.debug('x'); } }
+      good: |
+        public with sharing class LogGood { public static void a() { Logger.info('x'); } }
+
+  - id: FlowNoHardcodedEmail
+    guardrail: PRJ-03
+    engine: regex
+    intent: "No hardcoded email addresses in Flows; use Custom Metadata"
+    regex: "/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}/g"
+    file_extensions: [".flow-meta.xml"]
+    message: "Hardcoded email address in Flow (PRJ-03)"
+    severity: 2
+    approved_by: ""
+    tests:
+      bad: |
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Flow xmlns="http://soap.sforce.com/2006/04/metadata"><description>x</description>
+        <variables><name>to</name><value><stringValue>billing@acme.com</stringValue></value></variables></Flow>
+      good: |
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Flow xmlns="http://soap.sforce.com/2006/04/metadata"><description>x</description>
+        <variables><name>to</name><value><elementReference>Billing_Setting__mdt.Email__c</elementReference></value></variables></Flow>
+
+  - id: SoqlOnlyInSelectors
+    guardrail: PRJ-05
+    engine: pmd
+    intent: "SOQL lives in *Selector classes (layering); tests excluded"
+    xpath: "//SoqlExpression[not(ancestor::UserClass[ends-with(@SimpleName, 'Selector')])][not(ancestor::UserClass[ModifierNode/Annotation[@Name='IsTest']])]"
+    message: "SOQL outside a Selector class (PRJ-05)"
+    severity: 3
+    approved_by: ""
+    tests:
+      bad: |
+        public with sharing class AccountService {
+            public static List<Account> load() { return [SELECT Id FROM Account]; }
+        }
+      good: |
+        public with sharing class AccountSelector {
+            public static List<Account> load() { return [SELECT Id FROM Account]; }
+        }
+
+  - id: NoSecurityEnforced
+    guardrail: HG-01
+    engine: regex
+    intent: "Use WITH USER_MODE; WITH SECURITY_ENFORCED is removed in API v67.0 (classes fail to compile)"
+    regex: "/WITH\\s+SECURITY_ENFORCED/gi"
+    file_extensions: [".cls", ".trigger"]
+    message: "WITH SECURITY_ENFORCED → use WITH USER_MODE (removed in API v67.0)"
+    severity: 2
+    approved_by: ""
+    tests:
+      bad: |
+        public with sharing class SecBad { public static List<Account> a() { return [SELECT Id FROM Account WITH SECURITY_ENFORCED]; } }
+      good: |
+        public with sharing class SecGood { public static List<Account> a() { return [SELECT Id FROM Account WITH USER_MODE]; } }

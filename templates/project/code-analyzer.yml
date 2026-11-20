@@ -1,0 +1,22 @@
+# Salesforce Code Analyzer v5 config for this project.
+# Run: sf code-analyzer run --workspace force-app --rule-selector Recommended --severity-threshold 2 --output-file docs/wiki/_data/code-analyzer.json
+# [med] Rule names per PMD 7 / Code Analyzer v5 — verify with: sf code-analyzer rules --rule-selector pmd
+rules:
+  pmd:
+    ApexUnitTestShouldNotUseSeeAllDataTrue:
+      severity: 2
+    ApexUnitTestClassShouldHaveAsserts:
+      severity: 2
+    ApexCRUDViolation:
+      severity: 2
+    # code-design rubric (guardrails/rubric/code-design.yaml)
+    ExcessiveParameterList:
+      severity: 3
+    NcssMethodCount:
+      severity: 3
+    NcssTypeCount:
+      severity: 3
+    CognitiveComplexity:
+      severity: 3
+    AvoidDeeplyNestedIfStmts:
+      severity: 3

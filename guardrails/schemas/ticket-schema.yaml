@@ -1,0 +1,82 @@
+# Ticket schema. Tool-neutral: tickets as markdown with YAML front matter (docs/tickets/*.md),
+# or tracker fields mapped 1:1 (see tracker-setup.md). Body keeps the 5 sections:
+#   1 Business requirements · 2 Background · 3 Technical requirements · 4 Acceptance criteria · 5 Detail implementation
+# required_at: create = needed to exist · ready = needed for G3 (Definition of Ready)
+#              done = needed for G4 (Definition of Done, also checked by dev_cycle.py dod)
+version: 1
+statuses: [draft, needs_refinement, ready, in_progress, done]   # 'ready' requires the ready stage to pass
+
+enums:
+  type: [story, task, bug, spike, cr]
+  criticality: [critical, high, medium, low]
+  test_tier: [unit, integration, both, uat]
+  pillar_effect: ["+", "0", "-"]
+  estimate: [S, M, L]          # XL = split it
+  cr_size: [small, medium, large]
+  cr_decider: [pm_tl, change_board, approver]
+  metadata_state: [existing, new]
+
+limits:
+  title_max: 80
+  max_points: 8                # numeric estimates above this must be split
+
+common:
+  - {field: type,             required_at: create, kind: enum}
+  - {field: title,            required_at: create, kind: title}          # "[Area] outcome"
+  - {field: parent,           required_at: create, kind: text}           # epic key
+  - {field: business_process, required_at: create, kind: text}
+  - {field: source,           required_at: create, kind: text}           # person · date · channel
+  - {field: criticality,      required_at: create, kind: enum}
+  - {field: repeat_search,    required_at: create, kind: text}           # the search line, or "not searched — reason"
+  - {field: req,              required_at: create, kind: list, types: [story, task, cr]}   # REQ-nnn / CR-nnn
+  - {field: owner,            required_at: ready,  kind: text}
+  - {field: acceptance_criteria, required_at: ready, kind: ac}           # list; Given/When/Then; ≥1 tagged (negative)
+  - {field: metadata,         required_at: ready,  kind: metadata, types: [story, task, bug]}  # [{type: object/field/class/trigger/flow/lwc/permissionset/other, name, state: existing/new}]
+  - {field: pattern,          required_at: ready,  kind: pattern, types: [story, task, bug]}   # {follows: current|target, adr: ADR-nnn}
+  - {field: access,           required_at: ready,  kind: text}           # perm sets / profiles, or "none"
+  - {field: test_tier,        required_at: ready,  kind: enum, types: [story, task, bug]}
+  - {field: hard_gate_risk,   required_at: ready,  kind: text}           # "none" or list
+  - {field: pillar_impact,    required_at: ready,  kind: pillars}        # {trust,reliability,opex,cost,fairness}: + 0 -
+  - {field: migration_items,  required_at: ready,  kind: text}           # "none" or M-nn list
+  - {field: dependencies,     required_at: ready,  kind: text}           # "none" or keys
+  - {field: estimate,         required_at: ready,  kind: estimate}
+  - {field: reviewed_by,      required_at: done,   kind: text, types: [story, task, bug]}   # person · date (code review)
+  - {field: pr,               required_at: done,   kind: text, types: [story, task, bug]}   # PR / merge request link
+
+by_type:
+  story:
+    - {field: user_story,     required_at: create, kind: text}           # As <role>, I want <x>, so that <y>
+    - {field: business_value, required_at: create, kind: text}
+    - {field: scope_in,       required_at: create, kind: text}
+    - {field: scope_out,      required_at: create, kind: text}
+  task:
+    - {field: objective,      required_at: create, kind: text}
+    - {field: steps,          required_at: ready,  kind: list}
+  bug:
+    - {field: environment,    required_at: create, kind: text}
+    - {field: steps_to_reproduce, required_at: create, kind: list}
+    - {field: expected,       required_at: create, kind: text}
+    - {field: actual,         required_at: create, kind: text}
+    - {field: evidence,       required_at: create, kind: text}
+    - {field: workaround,     required_at: create, kind: text}           # or "none"
+  spike:
+    - {field: question,       required_at: create, kind: text}
+    - {field: timebox,        required_at: create, kind: text}
+    - {field: unblocks,       required_at: create, kind: text}
+  cr:
+    - {field: current_behavior,   required_at: create, kind: text}
+    - {field: requested_behavior, required_at: create, kind: text}
+    - {field: cr_size,        required_at: create, kind: enum}
+    - {field: cr_decider,     required_at: create, kind: enum}
+    - {field: effort_days,    required_at: create, kind: number}
+    - {field: scope_pct,      required_at: create, kind: number}         # % of approved scope
+    - {field: design_change,  required_at: create, kind: bool}
+    - {field: guardrail_change, required_at: create, kind: bool}
+    - {field: new_process,    required_at: create, kind: bool}
+    - {field: approval,       required_at: ready,  kind: text}           # approved/rejected/deferred · who · date
+
+# CR routing rule (change-control.md). Lint checks cr_size + cr_decider match.
+cr_routing:
+  large:  {when_any: [guardrail_change, new_process, "scope_pct > 10"], decider: approver}
+  medium: {when_any: [design_change, "effort_days > 1"],                 decider: change_board}
+  small:  {otherwise: true,                                              decider: pm_tl}

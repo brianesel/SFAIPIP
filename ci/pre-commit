@@ -1,0 +1,3 @@
+#!/bin/sh
+# Copy to .git/hooks/pre-commit (init_project.py does this). Set PKG to the package path.
+python3 "${SF_AI_PIPELINE:-./sf-ai-dev-pipeline}/tools/gate_check.py" --ci

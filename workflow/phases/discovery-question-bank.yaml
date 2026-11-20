@@ -1,0 +1,44 @@
+# Discovery question bank. must_decide: true = build gate needs an answer.
+# applies_when: always | ui | integration | agentic | existing_org | data_migration
+version: 1
+areas:
+  scope:
+    - {id: SCO-01, must_decide: true,  applies_when: always, q: "Which business process does this change, start to end? Who starts it, what ends it?"}
+    - {id: SCO-02, must_decide: true,  applies_when: always, q: "What does success look like, measured how (KPI, number, date)?"}
+    - {id: SCO-03, must_decide: true,  applies_when: always, q: "What is explicitly out of scope?"}
+    - {id: SCO-04, must_decide: false, applies_when: always, q: "Is there a deadline or event driving the date?"}
+  users_access:
+    - {id: USR-01, must_decide: true,  applies_when: always, q: "Which user groups use it, roughly how many each, which licenses?"}
+    - {id: USR-02, must_decide: true,  applies_when: always, q: "Who may see / edit which records? Any data some users must never see?"}
+    - {id: USR-03, must_decide: false, applies_when: ui,     q: "Desktop, mobile, or both? Any accessibility requirements?"}
+  data:
+    - {id: DAT-01, must_decide: true,  applies_when: always, q: "Which entities are new, which exist? Can a standard object do it?"}
+    - {id: DAT-02, must_decide: true,  applies_when: always, q: "Expected record volumes now and in 3 years per object (LDV/skew risk)?"}
+    - {id: DAT-03, must_decide: true,  applies_when: always, q: "Which system is master for each entity?"}
+    - {id: DAT-04, must_decide: false, applies_when: always, q: "Personal or sensitive data? Retention / deletion rules (GDPR)?"}
+    - {id: DAT-05, must_decide: true,  applies_when: data_migration, q: "Source, volume, cleansing owner and cut-over plan for migrated data?"}
+  automation:
+    - {id: AUT-01, must_decide: true,  applies_when: always, q: "What must happen automatically, on which trigger (create/update/schedule/event)?"}
+    - {id: AUT-02, must_decide: true,  applies_when: existing_org, q: "Which existing automations touch the same objects/fields (Execution Map)?"}
+    - {id: AUT-03, must_decide: false, applies_when: always, q: "What happens on failure: retry, alert, user message, manual fix?"}
+  architecture:
+    - {id: ARC-01, must_decide: true,  applies_when: always, q: "For the 3 busiest objects: how many automations, what record volume (UI or batch/integration), how many related objects does a save cascade into? (automation density → ARCH-001)"}
+    - {id: ARC-02, must_decide: true,  applies_when: existing_org, q: "Is a trigger framework already in use, and consistently? (ARCH-001: keep-existing; none → a human chooses)"}
+    - {id: ARC-03, must_decide: true,  applies_when: always, q: "Is a logging framework in use? Dependency policy for open-source packages? (ARCH-004)"}
+    - {id: ARC-04, must_decide: true,  applies_when: always, q: "Which objects will exceed ~1M records within 3 years, and what is the retention/legal need for old data? (ARCH-005)"}
+    - {id: ARC-06, must_decide: true,  applies_when: always, q: "How do changes reach production today (change sets, DevOps Center, CLI/CI, packages, tool)? Git provider? Compliance needs (rollback, audit)? (ARCH-006)"}
+    - {id: ARC-05, must_decide: true,  applies_when: existing_org, q: "Current Apex API versions; any WITH SECURITY_ENFORCED or implicit system-mode code? (API v67.0 changes defaults)"}
+  integration:
+    - {id: INT-01, must_decide: true,  applies_when: integration, q: "Which systems, direction, real-time or batch, volume per day?"}
+    - {id: INT-02, must_decide: true,  applies_when: integration, q: "Auth method and who owns the credentials? Middleware or direct?"}
+    - {id: INT-03, must_decide: true,  applies_when: integration, q: "Behaviour when the other system is down? Idempotency key?"}
+    - {id: INT-04, must_decide: true,  applies_when: integration, q: "Existing middleware / event platform? Which systems consume the same business events? (ARCH-002, ARCH-003)"}
+  agentic:
+    - {id: AGT-01, must_decide: true,  applies_when: agentic, q: "Which actions may the agent take without a human? Which need approval?"}
+    - {id: AGT-02, must_decide: true,  applies_when: agentic, q: "What data may the agent read during reasoning? Escalation path to a human?"}
+  nfr_delivery:
+    - {id: NFR-01, must_decide: true,  applies_when: always, q: "Environments: which sandboxes, source control, who deploys to prod?"}
+    - {id: NFR-02, must_decide: false, applies_when: always, q: "Performance expectations (page load, batch window)?"}
+    - {id: NFR-03, must_decide: true,  applies_when: always, q: "Who signs off the design and who accepts in UAT?"}
+    - {id: NFR-04, must_decide: false, applies_when: always, q: "Who maintains it after go-live: admin, dev, partner?"}
+    - {id: NFR-05, must_decide: true,  applies_when: always, q: "Pillar targets: pick a profile (internal-tool / customer-facing / regulated / agentic) or set Trust/Reliability/OpEx/Cost/Fairness targets 0–100."}

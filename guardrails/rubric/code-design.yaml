@@ -1,0 +1,213 @@
+# Code design rubric. Baseline: Clean Apex Code (P. Gonzalez, Apress 2025) chapter topics,
+# plus general clean-code practices. Anchors are our own wording, not quotes.
+# Thresholds are [low] defaults: tune in calibration. PMD rule names [med]: verify with
+#   sf code-analyzer rules --rule-selector pmd
+# Legacy orgs: score honestly here; phase 2 enforces "changed file must not get worse".
+aspect: code_design
+name: Code design (clean Apex)
+checks:
+  # --- Formatting (gate: cheap, automatic) ---
+  - id: design.formatting
+    guardrail: HG-10
+    type: gate
+    pillar: opex
+    measure: "prettier --check with prettier-plugin-apex passes on force-app (Apex + LWC)"
+    evidence: prettier output
+
+  - id: design.lwc_eslint
+    guardrail: HG-10
+    type: gate
+    pillar: opex
+    measure: "0 severity 1-2 findings from Code Analyzer eslint engine on lwc/"
+    evidence: code-analyzer.json
+
+  # --- Naming (CAC ch.2) ---
+  - id: design.naming_conventions
+    type: measured
+    pillar: opex
+    weight: 10
+    zero_at: 70
+    full_at: 100
+    measure: >
+      % of classes/triggers matching project naming rules (regex), e.g. PascalCase;
+      suffix by role: *Service, *Selector, *Domain, *TriggerHandler, *Test, *Batch, *Queueable;
+      trigger = <Object>Trigger
+    evidence: metadata inventory + naming regex
+  - id: design.naming_intent
+    type: judged
+    pillar: opex
+    weight: 5
+    anchors:
+      0: "Names are abbreviations or generic (data, temp, util, helper, doStuff); same concept has several names."
+      50: "Most names readable; some generic utility classes or inconsistent terms."
+      100: "Names state intent in business terms, one word per concept, no generic dumping-ground classes."
+
+  # --- Doing one thing (CAC ch.3) ---
+  - id: design.flag_params
+    type: measured
+    pillar: opex
+    weight: 5
+    zero_at: 80
+    full_at: 100
+    measure: "% of public/global methods without a Boolean parameter that switches behavior"
+    evidence: regex scan + review of hits
+  - id: design.param_count
+    type: measured
+    pillar: opex
+    weight: 5
+    zero_at: 85
+    full_at: 100
+    measure: "% of methods with ≤ 4 parameters (PMD ExcessiveParameterList)"
+    evidence: code-analyzer.json
+
+  # --- Method length and depth (CAC ch.4) ---
+  - id: design.method_size
+    type: measured
+    pillar: opex
+    weight: 10
+    zero_at: 70
+    full_at: 100
+    measure: "% of non-test methods ≤ 30 statements (PMD NcssMethodCount)"
+    evidence: code-analyzer.json
+  - id: design.method_complexity
+    type: measured
+    pillar: opex
+    weight: 10
+    zero_at: 80
+    full_at: 100
+    measure: "% of methods below CognitiveComplexity threshold 15 (PMD CognitiveComplexity)"
+    evidence: code-analyzer.json
+  - id: design.nesting_depth
+    type: measured
+    pillar: opex
+    weight: 5
+    zero_at: 20
+    full_at: 0
+    measure: "Count of deeply nested if blocks > 3 levels (PMD AvoidDeeplyNestedIfStmts)"
+    evidence: code-analyzer.json
+
+  # --- Comments (CAC ch.5) ---
+  - id: design.commented_out_code
+    type: measured
+    pillar: opex
+    weight: 3
+    zero_at: 50
+    full_at: 0
+    measure: "Count of commented-out code blocks (regex: comment lines ending in ; or { or })"
+    evidence: regex scan
+  - id: design.comments_why
+    type: judged
+    pillar: opex
+    weight: 4
+    anchors:
+      0: "Comments restate code, are outdated or misleading; public APIs undocumented."
+      50: "Public/@AuraEnabled/invocable methods documented; some noise comments."
+      100: "Comments explain why (business rule, platform quirk, workaround with link); no noise; public APIs documented."
+
+  # --- Null, validations, guard clauses (CAC ch.6) ---
+  - id: design.guard_clauses
+    type: judged
+    pillar: reliability
+    weight: 8
+    anchors:
+      0: "Inputs unchecked; null handling by accident; deep if-else pyramids; NullPointerException in logs."
+      50: "Null checks present but scattered; mix of guard clauses and nested checks."
+      100: "Inputs validated at entry with guard clauses and early return/throw; nulls handled deliberately; no NPEs in recent logs."
+
+  # --- Cascading failures in trigger boundaries (CAC ch.7) ---
+  - id: design.trigger_boundary
+    type: judged
+    pillar: reliability
+    weight: 8
+    anchors:
+      0: "One bad record fails the whole batch with an unhandled exception; errors don't reach the user/record."
+      50: "Some handling; all-or-nothing vs partial success not decided per entry point."
+      100: "Each entry point decides all-or-nothing vs partial success; per-record addError for user errors; async/integration failures isolated and logged."
+
+  # --- OOP, design principles, classes (CAC ch.8-9) ---
+  - id: design.class_size
+    type: measured
+    pillar: opex
+    weight: 5
+    zero_at: 80
+    full_at: 100
+    measure: "% of classes ≤ 300 statements (PMD NcssTypeCount)"
+    evidence: code-analyzer.json
+  - id: design.class_responsibility
+    type: judged
+    pillar: opex
+    weight: 7
+    anchors:
+      0: "God classes mixing query, logic, DML, callout and UI; copy-paste instead of reuse; static everything."
+      50: "Most classes have one role; some mixed responsibilities; abstraction used unevenly."
+      100: "One responsibility per class (SOLID single responsibility); behavior extended via interfaces/strategy, not edits everywhere; no unused abstraction (YAGNI)."
+
+  # --- Modularity, coupling, cohesion (CAC ch.10) ---
+  - id: design.layering
+    type: measured
+    pillar: opex
+    weight: 8
+    zero_at: 50
+    full_at: 100
+    measure: "% of SOQL statements located in selector classes (and DML in service/unit-of-work), excluding tests"
+    evidence: regex scan by class role
+  - id: design.coupling
+    type: measured
+    pillar: opex
+    weight: 5
+    zero_at: 70
+    full_at: 100
+    measure: "% of classes depending on ≤ 7 other custom classes (MetadataComponentDependency via Tooling API)"
+    evidence: dependency query export
+  - id: design.duplication
+    type: measured
+    pillar: opex
+    weight: 5
+    zero_at: 10
+    full_at: 0
+    measure: "% duplicated Apex lines (Code Analyzer cpd engine)"
+    evidence: code-analyzer.json (cpd)
+
+  # --- Dependency injection and boundaries (CAC ch.11) ---
+  - id: design.di_seams
+    type: judged
+    pillar: reliability
+    weight: 6
+    anchors:
+      0: "Callouts, queries and time/user lookups are hardwired; logic cannot be tested without real DML/callouts."
+      50: "Some seams (interfaces, @TestVisible injection) at external boundaries only."
+      100: "External systems and data access behind interfaces; dependencies injected (constructor/factory/Stub API); core logic testable in memory."
+
+  # --- General clean-code extras ---
+  - id: design.magic_literals
+    type: measured
+    pillar: opex
+    weight: 5
+    zero_at: 50
+    full_at: 0
+    measure: "Count of business literals (numbers ≠ 0/1, status/picklist strings, URLs, emails) in logic; config belongs in Custom Metadata / Labels / constants"
+    evidence: regex scan + triage
+  - id: design.dead_code
+    type: measured
+    pillar: cost
+    weight: 5
+    zero_at: 15
+    full_at: 0
+    measure: "% of classes/methods with no references (dependency query + PMD unused rules), excluding entry points"
+    evidence: dependency query + code-analyzer.json
+  - id: design.api_version
+    type: measured
+    pillar: reliability
+    weight: 4
+    zero_at: 50
+    full_at: 100
+    measure: "% of Apex classes, triggers and Flows on API version within the last 3 years (~9 releases); regex:AvoidOldSalesforceApiVersions"
+    evidence: metadata inventory
+  - id: design.single_logger
+    type: measured
+    pillar: opex
+    weight: 4
+    zero_at: 20
+    full_at: 0
+    measure: "Count of System.debug calls in non-test code (one logging framework expected)"
+    evidence: regex scan

@@ -1,0 +1,6 @@
+#!/bin/sh
+# Guarded Salesforce CLI for any AI tool or script: `sf-safe <args>` = `sf <args>` after org_guard.py allows it.
+# Usage in other AI tools: tell the agent to use sf-safe instead of sf (AGENTS.md).
+DIR="$(cd "$(dirname "$0")" && pwd)"
+python3 "$DIR/org_guard.py" check "sf $*" --project "${SF_PROJECT_DIR:-.}" >/dev/null || { python3 "$DIR/org_guard.py" check "sf $*" --project "${SF_PROJECT_DIR:-.}"; exit 1; }
+exec sf "$@"

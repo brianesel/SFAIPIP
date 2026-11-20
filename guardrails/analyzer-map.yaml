@@ -1,0 +1,59 @@
+# Guardrails → Salesforce Code Analyzer v5 rules.
+# Rule names verified against `sf code-analyzer rules --rule-selector all` (712 rules: pmd, eslint, flow, regex, cpd, sfge, retire-js)
+# on 2026-11-20. Re-verify after analyzer upgrades: `tools/rule_map.py inventory` + `coverage`.
+#
+# severity: raise to 2 for hard guardrails so `--severity-threshold 2` blocks them (HG-10).
+#           Several defaults are 3 (e.g. OperationWithLimitsInLoop, ApexUnitTestClassShouldHaveAsserts)
+#           and would NOT block without this.
+# Every mapped rule gets the tag "Project" (existing tags kept), so CI runs
+#   sf code-analyzer run --rule-selector Recommended --rule-selector Project
+# and also catches mapped rules that are not "Recommended" (e.g. flow:MissingFaultHandler).
+version: 1
+
+guardrails:
+  HG-01:   # CRUD/FLS
+    - {rule: pmd:ApexCRUDViolation}
+    - {rule: pmd:ApexSOQLInjection}
+    - {rule: flow:PreventPassingUserDataIntoElementWithoutSharing}
+  HG-02:   # bulk-safe
+    - {rule: pmd:OperationWithLimitsInLoop, severity: 2}
+    - {rule: flow:DbInLoop}
+    - {rule: regex:AvoidGetHeapSizeInLoop}
+  HG-03:   # no hardcoded secrets / endpoints / ids
+    - {rule: pmd:AvoidHardcodingId, severity: 2}
+    - {rule: pmd:ApexSuggestUsingNamedCred}
+    - {rule: pmd:ApexInsecureEndpoint}
+    - {rule: flow:HardcodedId, severity: 2}
+  HG-04:
+    - {rule: pmd:ApexUnitTestShouldNotUseSeeAllDataTrue}
+  HG-05:
+    - {rule: pmd:ApexUnitTestClassShouldHaveAsserts, severity: 2}
+  HG-06:   # sharing declared
+    - {rule: pmd:ApexSharingViolations, severity: 2}
+  HG-07:   # logic in handlers (one-trigger-per-object is cross-file → score.py inventory)
+    - {rule: pmd:AvoidLogicInTrigger, severity: 2}
+
+# Enforced outside the analyzer (no rule needed)
+not_analyzer:
+  HG-07: "one trigger per object: cross-file count in the metadata inventory (rubric automation.one_trigger_per_object)"
+  HG-08: "tools/org_guard.py (evaluation_readonly orgs)"
+  HG-09: "tools/org_guard.py (production orgs, non-sandbox orgs, HTTP writes)"
+  HG-10: "severity threshold itself (CI + dev_cycle.py dod)"
+  HG-11: "tools/org_guard.py (write_allowed + IsSandbox verification)"
+
+# Rubric checks measured by analyzer rules (not blocking; counted by score inputs)
+rubric:
+  tests.assert_message:          [pmd:ApexAssertionsShouldIncludeMessage]
+  tests.method_length:           [pmd:NcssMethodCount]
+  automation.flow_fault_paths:   [flow:MissingFaultHandler]
+  automation.hardcoded_ids:      [pmd:AvoidHardcodingId, flow:HardcodedId]
+  design.param_count:            [pmd:ExcessiveParameterList]
+  design.method_size:            [pmd:NcssMethodCount]
+  design.method_complexity:      [pmd:CognitiveComplexity]
+  design.nesting_depth:          [pmd:AvoidDeeplyNestedIfStmts]
+  design.class_size:             [pmd:NcssTypeCount]
+  design.duplication:            [cpd:DetectCopyPasteForApex]
+  design.dead_code:              [pmd:UnusedMethod, pmd:UnusedLocalVariable]
+  design.api_version:            [regex:AvoidOldSalesforceApiVersions]
+  design.single_logger:          [pmd:AvoidDebugStatements]
+  design.comments_why:           [pmd:ApexDoc]

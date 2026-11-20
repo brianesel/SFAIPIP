@@ -1,0 +1,53 @@
+# Project guardrails = pipeline baseline (sf-ai-dev-pipeline) + overrides. Do not copy baseline rules here; only deviations.
+baseline: sf-ai-dev-pipeline@0.11.0
+path: ""                      # existing-org | new-org (set in intake)
+team_profile: ""              # solo | small | multi-team (set in intake)
+team:
+  devs: 0
+  admins: 0
+  skills: {apex: "", flow: "", lwc: "", target_pattern: ""}
+roles:
+  approver: ""                # customer side, signs G1/G2
+  pm: ""
+  tech_lead: ""
+  change_board: []
+pillar_profile: customer-facing
+pillar_targets: {}            # override profile targets, e.g. {fairness: na}
+capacity_split: {feature: 70, migration: 15, boy_scout: 15}   # % per sprint
+orgs:                          # prod guard + sandbox lock (tools/org_guard.py)
+  write_allowed: []            # sandbox aliases the AI may write to (deploy, test runs, data); verified IsSandbox=true
+  production: []               # production aliases: AI writes always blocked (humans deploy in 07-delivery)
+  evaluation_readonly: []      # orgs under evaluation: read-only (HG-08)
+  scratch_allowed: []          # scratch org aliases allowed when TrialExpirationDate is set
+architecture:                  # decision cards in docs/decisions/ARCH-*.md; values: pending | <choice> | n/a
+  trigger_framework: pending   # ARCH-001: keep-existing | A minimal handler | B metadata-driven | C fflib domain | D in-house (none yet → always ask)
+  inbound_api: per-interface   # ARCH-002: decided per row in docs/design/integration-inventory.md (package policy)
+  integration_topology: pending  # ARCH-003: point-to-point | middleware-hub | event-driven | mixed | n/a
+  logging_framework: pending   # ARCH-004: keep-existing | A nebula-logger | B in-house | C platform-only
+  delivery_model: pending      # ARCH-006: keep-existing | devops-center | cli-ci | unlocked-packages | commercial-tool
+  archiving: pending           # ARCH-005: n/a | delete-with-retention | big-objects | external-archive | external-objects | mixed
+project_rules: []              # project-specific guardrails, e.g.
+#  - {id: PRJ-01, rule: "New async Apex uses Queueable, not @future", enforce: analyzer, adr: ADR-003}
+#  - {id: PRJ-04, rule: "Service classes end with 'Service'", enforce: review}
+dev:
+  require_agreed_tests: true   # block force-app writes until the active ticket has a valid agreed test set
+  class_coverage_min: 85       # per class in the ticket (baseline org-wide minimum stays 75)
+  loop_guard: 3                # same case failing N iterations → escalate
+  review: "1 human + 1 independent AI review"   # solo/small; multi-team: 2 humans
+overrides: []
+#  - check: tests.coverage
+#    full_at: 85             # baseline 95; ratchet +5 per release
+#    reason: legacy suite
+#    adr: ADR-004
+#    owner: ""
+#    review: 2027-03-31
+waivers: []                   # hard gates: existing files only, must expire
+#  - check: automation.no_limits_in_loop
+#    scope: [classes/LegacyOrderSync.cls]
+#    exit: M-01
+#    owner: ""
+#    expires: 2027-01-31
+approval:
+  status: DRAFT               # DRAFT | APPROVED
+  approved_by: ""
+  date: ""
