@@ -6,7 +6,7 @@ Guardrails, best practices and workflows for AI-assisted Salesforce development,
 | Folder | What |
 |---|---|
 | `guardrails/` | `registry.yaml` (every rule with an ID) · `README.md` (generated index) · `analyzer-map.yaml` (guardrail → verified Code Analyzer rules) · `rubric/` (scoring) · `schemas/` (ticket + test-case fields) |
-| `best-practices/` | Well-Architected, clean Apex, testing, patterns + migration, requirements + tickets, AI-assisted development, **`architecture/`**: trigger framework, API & integration, async, error handling + logging, data model / LDV, security + sharing, configuration, LWC data access, DevOps + packaging, with decision cards ARCH-001…006 |
+| `best-practices/` | Well-Architected, clean Apex, testing, patterns + migration, requirements + tickets, AI-assisted development, **`build/`**: one guide per metadata area (Flows, Apex, permissions & access, objects & fields, validation rules & formulas, Lightning pages & UI, LWC, reports & dashboards, integration metadata, Agentforce), **`architecture/`**: trigger framework, API & integration, async, error handling + logging, data model / LDV, security + sharing, configuration, LWC data access, DevOps + packaging, with decision cards ARCH-001…006 |
 | `workflow/` | `daily-guide.md` · `project-map.md` · `phases/00–07` (each step cites its guardrails) · `processes/` (change control, rituals, tracker setup) |
 | `tools/` | init, status, gate check, **org guard (prod guard + sandbox lock) + `sf-safe`**, **rule map (analyzer rules)**, score, ticket lint, dev cycle, weekly report, doc check |
 | `templates/project/` | files copied into each project |

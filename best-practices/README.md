@@ -11,4 +11,5 @@ What good looks like, and why. Guardrails (`../guardrails/`) are the subset that
 | `requirements-and-tickets.md` | REQs, tickets, change control | to-or-not-to-ticket rules |
 | `ai-assisted-development.md` | how AI is used safely in this pipeline | this package's AI rules |
 | `salesforce-official-skills.md` | how this pipeline uses Salesforce's official skills + DX MCP server; conflicts and precedence | forcedotcom/sf-skills, DX MCP server docs |
+| `build/` | 10 build guides, one per metadata area: Flows, Apex, permissions & access, objects & fields, validation rules & formulas, Lightning pages & UI, LWC, reports & dashboards, integration metadata, Agentforce | Salesforce official skills (`forcedotcom/sf-skills`), Salesforce Architects decision guides, Code Analyzer v5 rules, field experience from delivery projects |
 | `architecture/` | 9 reference architectures (triggers, API & integration, async, errors & logging, data model / LDV, security & sharing, configuration, LWC data access, DevOps) + decision cards ARCH-001…006 | Salesforce Architects decision guides, integration patterns, open-source frameworks |
