@@ -19,4 +19,4 @@
 | 11 | Review scores + wiki with the team | tech lead + PM | PR-03, AI-01 | judged scores approved before anything goes to the customer |
 
 ## Outputs
-`docs/wiki/` (index, aspect pages, process pages, findings) · `docs/wiki/_data/scores.*` + history.
+`docs/wiki/` (index, aspect pages, process pages, findings) · `docs/wiki/_data/scores.*` + history. Process pages and the Execution Map seed the system map (`../processes/system-map.md`).

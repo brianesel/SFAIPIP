@@ -12,3 +12,5 @@ How work moves from intake to production. Every step names the guardrails it che
 | `processes/rituals.md` | cadence: daily, weekly, sprint, release |
 | `processes/tracker-setup.md` | markdown tickets or Jira fields, validators, automation |
 | `processes/analyzer-rules.md` | map guardrails to analyzer rules; generate, test, approve custom rules |
+| `processes/automated-pipeline.md` | design (draft): agent pipeline from request to PR, testers, tech-lead review, impact diff |
+| `processes/system-map.md` | design (draft): living process, feature and automation map; search; kept current per ticket |
