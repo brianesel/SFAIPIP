@@ -6,8 +6,9 @@ usage:
   dev_cycle.py align <KEY> [--check]            compare tester.yaml vs ai.yaml → alignment.md + agreed.yaml draft;
                                                 --check validates agreed.yaml
   dev_cycle.py import-apex <KEY> --file F.json  new results/iter-N.yaml from `sf apex run test --result-format json`
-  dev_cycle.py report <KEY>                     AC status, failures, loop guard, appends iterations.md
-  dev_cycle.py dod <KEY>                        Definition of Done (G4)
+  dev_cycle.py report <KEY>                     AC status, failures, review findings, loop guard, appends iterations.md
+  dev_cycle.py dod <KEY> [--pre-pr]             Definition of Done (G4); --pre-pr skips the human-only steps
+                                                (status done, reviewed_by, pr) so the pipeline can open the PR
 Common option: --project DIR (default .)
 Exit 1 when the step's check fails.
 """
@@ -27,6 +28,7 @@ from ticket_lint import MetaIndex, lint_file, parse  # noqa: E402
 
 PKG = Path(__file__).resolve().parents[1]
 TSCHEMA = yaml.safe_load((PKG / "guardrails" / "schemas" / "test-case-schema.yaml").read_text())
+RSCHEMA = yaml.safe_load((PKG / "guardrails" / "schemas" / "review-schema.yaml").read_text())
 LOOP_GUARD = 3
 MATCH_RATIO = 0.5
 
@@ -280,6 +282,35 @@ def cmd_import_apex(root, key, file):
           f"Fill manual/jest cases, set build, then `report`.")
 
 
+# ---------- review ----------
+def latest_review(d):
+    files = sorted((d / "review").glob("iter-*.yaml"), key=lambda p: int(re.findall(r"\d+", p.stem)[0]))
+    return (files[-1], load_yaml(files[-1], {}) or {}) if files else (None, None)
+
+
+def validate_review(doc):
+    errs = []
+    if not isinstance(doc, dict):
+        return ["review file is not a mapping"]
+    for f in doc.get("findings") or []:
+        fid = f.get("id", "?")
+        for k in ("rule", "file", "severity", "evidence", "fix", "status"):
+            if f.get(k) in (None, ""):
+                errs.append(f"review {fid}: {k} missing")
+        if f.get("severity") not in RSCHEMA["severities"]:
+            errs.append(f"review {fid}: severity '{f.get('severity')}' invalid")
+        if f.get("status") not in RSCHEMA["statuses"]:
+            errs.append(f"review {fid}: status '{f.get('status')}' invalid")
+        if f.get("status") == "disputed" and not f.get("dispute"):
+            errs.append(f"review {fid}: disputed without a reason in 'dispute'")
+    return errs
+
+
+def open_blocking(doc):
+    return [f for f in (doc or {}).get("findings") or []
+            if f.get("severity") == "blocking" and f.get("status") in ("open", "disputed")]
+
+
 def ac_status(fm, ag, latest):
     acc = [c for c in ag.get("cases", []) if c.get("status") == "accepted"]
     res = (latest or {}).get("results", {})
@@ -300,7 +331,9 @@ def cmd_report(root, key):
         sys.exit("No results yet (import-apex or write results/iter-1.yaml)")
     f, latest = its[-1]
     rows = ac_status(fm, ag, latest)
-    done = all(r[4] for r in rows)
+    rf, review = latest_review(d)
+    blocking = open_blocking(review)
+    done = all(r[4] for r in rows) and not blocking
     L = [f"# Iteration {latest.get('iteration')} — {key} ({latest.get('date')})", "",
          f"**Verdict: {'✅ all acceptance criteria pass → run `dod`' if done else '❌ not yet — next iteration'}**", "",
          "| AC | Achieved | Cases |", "|---|---|---|"]
@@ -318,6 +351,14 @@ def cmd_report(root, key):
                     break
             guard = f" ⛔ failing {streak} iterations in a row → escalate (tech lead + PM)" if streak >= LOOP_GUARD else ""
             L.append(f"- {cid} {r.get('status')}: {r.get('note', '')} [evidence: {r.get('evidence', '')}]{guard}")
+    if review is not None:
+        L += ["", f"## Tech-lead review ({rf.name})", ""]
+        L += [f"- ❌ {e}" for e in validate_review(review)]
+        findings = review.get("findings") or []
+        L += [f"- {f.get('id')} [{f.get('severity')}/{f.get('status')}] {f.get('rule')} {f.get('file')}:{f.get('line', 0)} — {f.get('fix')}"
+              for f in findings] or ["- no findings"]
+        if blocking:
+            L.append(f"\n{len(blocking)} blocking finding(s) open or disputed → not done")
     log = d / "iterations.md"
     if not log.exists():
         log.write_text("| Iter | Date | Build | Pass | Fail/blocked | AC achieved |\n|---|---|---|---|---|---|\n")
@@ -334,7 +375,7 @@ def cmd_report(root, key):
 
 
 # ---------- dod ----------
-def cmd_dod(root, key):
+def cmd_dod(root, key, pre_pr=False):
     tf, fm = find_ticket(root, key)
     d = tdir(root, key)
     cfg = project_cfg(root)
@@ -379,15 +420,20 @@ def cmd_dod(root, key):
         viol = data.get("violations", data if isinstance(data, list) else [])
         high = [v for v in viol if int(v.get("severity", 5)) <= 2]
         checks.append(("Code Analyzer: 0 sev 1–2", [f"{len(high)} sev 1–2 findings"] if high else []))
+    _, review = latest_review(d)
+    checks.append(("No open blocking review findings", validate_review(review) + [
+        f"{f.get('id')} {f.get('rule')} {f.get('file')}" for f in open_blocking(review)] if review is not None
+        else ["no tech-lead review (review/iter-N.yaml)"]))
     r = lint_file(tf, {"root": root, "meta": MetaIndex(root, "force-app", None)}, stage="ready")
     lint_errs = r["fail"] + r["todo_ready"]
-    if fm.get("status") != "done":
+    if fm.get("status") != "done" and not pre_pr:
         lint_errs.append("set status: done (+ reviewed_by, pr) once the PR is reviewed")
     checks.append(("Ticket lint (done)", lint_errs))
     tr = root / "docs/delivery/traceability.md"
     checks.append(("Traceability updated", [] if tr.exists() and key in tr.read_text() else [f"{key} not in traceability.md"]))
     fail = any(p for _, p in checks)
-    L = [f"# Definition of Done (G4) — {key}: {'✅ DONE' if not fail else '❌ not done'}", ""]
+    title = "Pre-PR Done check" if pre_pr else "Definition of Done (G4)"
+    L = [f"# {title} — {key}: {'✅ ' + ('ready for PR' if pre_pr else 'DONE') if not fail else '❌ not done'}", ""]
     for name, probs in checks:
         L.append(f"{'✅' if not probs else '❌'} {name}")
         L += [f"   - {p}" for p in probs]
@@ -409,7 +455,7 @@ def main():
     elif cmd == "report":
         cmd_report(root, key)
     elif cmd == "dod":
-        cmd_dod(root, key)
+        cmd_dod(root, key, "--pre-pr" in a)
     else:
         sys.exit(__doc__)
 

@@ -1,6 +1,8 @@
 # Process — Automated agent pipeline (design, draft)
 
-**Status:** draft for review, 2026-11-22. Nothing below is built yet. Owner: tech lead.
+**Status:** phase 1 built 2026-11-23 (`tools/pipeline.py`, `tools/context_pack.py`, `agents/`, `skills/sfg-pipeline`, tests in `tests/`); phases 2–3 are design. Owner: tech lead.
+
+**Run it:** `python3 tools/pipeline.py run <KEY> --request "<text>"` from the project folder; run again after each human step. `pipeline.py status <KEY>` shows the state. Exit 0 = PR open, 3 = waiting for a human, 1 = stopped (escalation).
 
 **Verdict:** a Python orchestrator script (`tools/pipeline.py`) drives a ticket from request to pull request through seven agents. The script owns the flow; Claude agents do the work inside each step. It reuses the 06 Dev + test loop, the gates and the hooks that already exist, and adds four things: recordings as a test source, separate tester roles with different access, an impact diff against a baseline, and an AI tech-lead review on every iteration. Every iteration is committed and pushed, failing ones included. Humans keep every approval: test set, impacts, waivers, escalations, the PR and Done (AI-01).
 
@@ -41,19 +43,19 @@ Request ─► Context pack (draft) ─► Intake agent ─► ticket Ready (G3)
 |---|---|
 | Entry points | `pipeline.py run <KEY>` (start or continue) · `pipeline.py status <KEY>` · `pipeline.py approve <KEY> <stop>` only records that a human-edited approval file exists; it never approves on its own |
 | State | `docs/tests/<KEY>/pipeline.yaml`: current step, iteration, loop-guard counters, last verdict, waiting-on. Committed with each iteration, so state is in git |
-| Calling agents | one agent per step, fresh context, run headless through Claude Code (`claude -p`) or the Claude Agent SDK, with the agent's tool list and org alias [med: exact CLI flags / SDK calls verified at build time] |
+| Calling agents | one agent per step, fresh context, run headless: `claude -p` with the task on stdin, the agent file as `--append-system-prompt`, its `allowed` / `denied` rules as `--allowedTools` / `--disallowedTools`, `--permission-mode dontAsk`, `--plugin-dir <package>`; never `--bare` (it skips hooks) [verified: Claude Code 2.1.268 `--help`, 2026-11-23]. `SFG_AGENT_CMD` swaps the command (tests use a fake agent) |
 | After every agent step | the script checks the output with code: file exists, schema valid, `dev_cycle.py` / `ticket_lint.py` exit code. An agent saying "done" is not evidence |
 | Approval points | the script writes what it is waiting for into `pipeline.yaml`, prints it, and exits. `run` again continues once the approval file is valid. Waiting costs nothing |
 | Parallel checks | the four checkers run as parallel subprocesses; the verdict waits for all four |
 | Loop guard | counters in `pipeline.yaml`; at the limit the script stops and escalates (PR-09, AI-04). No flag to bypass it |
 | Git | the script commits and pushes each iteration and opens the PR (`gh pr create`). Prerequisite: `gh` CLI installed and authenticated [verified: not installed on the author's machine 2026-11-23] |
-| Hooks | `org_guard.py` and `gate_check.py` stay in Claude Code hooks, so they fire inside every agent call [med: confirm hooks load in headless runs] |
+| Hooks | `org_guard.py` and `gate_check.py` stay in Claude Code hooks, so they fire inside every agent call [verified 2026-11-23: a headless run with `--plugin-dir` was blocked by `gate_check.py` writing to force-app without sign-off] |
 | From chat | optional thin skill `sfg-pipeline` that only runs `pipeline.py` and shows its output |
 
 **Alternatives considered:** LLM-driven skill (rejected: can skip steps or miscount); GitHub Spec Kit (its process duplicates ours and checks done by self-assessment; its workflow engine could run our steps, but adds a young dependency for what is a few hundred lines of code); LangGraph / Temporal (not needed while state lives in git files; revisit for many parallel unattended tickets).
 
 ## 4. Agents
-Each agent runs with fresh context, its own tool list and its own org alias. Definitions live in `.claude/agents/<name>.md` [med: per-agent tool lists exist in Claude Code; per-agent hooks need checking against current docs before build].
+Each agent runs with fresh context, its own tool list and its own org alias. Definitions live in `agents/<name>.md` in this package: front matter `allowed` / `denied` permission rules plus the prompt; `{KEY}`, `{ITER}`, `{BASE}`, `{PKG}` are filled per call. Tool rules are defence in depth; the orchestrator also checks with code: test files the developer touched are reverted and escalated, checkers changing force-app are escalated, `tester.yaml` is moved out of the tree while the test designer runs (AI-03).
 
 | Agent | Job | Access | Never |
 |---|---|---|---|
@@ -200,10 +202,11 @@ Output `review/iter-N.yaml`, schema `guardrails/schemas/review-schema.yaml` (new
 |---|---|
 | `tools/pipeline.py` | new orchestrator script (section 3) |
 | `skills/sfg-pipeline/SKILL.md` | optional thin skill that runs `pipeline.py` from chat |
-| `.claude/agents/*.md` | seven agent definitions |
+| `agents/*.md` | seven agent definitions (impact and UAT testers are placeholders until phases 2–3) |
 | `tools/dev_cycle.py` | `baseline`, `import-impact`, `import-review`; `report` merges all; `dod` checks impacts + review |
 | `tools/recording_to_cases.py` | new |
 | `tools/context_pack.py` | new: builds `context.md` (section 7) |
+| `tools/pm_sync.py`, `pm_sync.yaml` | optional PM tool sync with adapters (section 17) |
 | `tools/system_map.py`, `guardrails/schemas/system-map-schema.yaml` | new; see `system-map.md` |
 | `guardrails/schemas/test-case-schema.yaml` | `proposed` status |
 | `guardrails/schemas/review-schema.yaml`, `impact-schema.yaml` | new |
@@ -220,7 +223,48 @@ Output `review/iter-N.yaml`, schema `guardrails/schemas/review-schema.yaml` (new
 ## 16. Open decisions
 | # | Question | Default if not decided |
 |---|---|---|
-| 1 | Agent calls: `claude -p` subprocess or Claude Agent SDK | `claude -p` [med: fewer dependencies; switch to SDK if output parsing gets fragile] |
+| 1 | Agent calls: `claude -p` subprocess or Claude Agent SDK | decided 2026-11-23: `claude -p`; revisit the SDK if output parsing gets fragile |
 | 2 | Primary recording format | Chrome DevTools Recorder JSON |
 | 3 | Who approves impacts: human tech lead, PM, or either | human tech lead |
 | 4 | Persona credentials store | local env file outside the repo for phase 1–2; secret store for phase 3 |
+
+## 17. PM tool sync (option)
+**Status:** option, 2026-11-23. Off unless a project turns it on. This package stays tool-neutral: it ships the sync interface and generic adapters only. Adapters for a specific company method or PM tool live outside this repo.
+
+**Verdict:** the engineering repo stays the record of what was built and what proves it. A one-way sync publishes status to whatever the project uses for planning and customer reporting. Each fact has one owner; the PM tool shows it, never edits it.
+
+**Repos:** engineering repo (code, tickets, tests, designs, decisions, map) and a separate PM side (a project-management folder, Jira, Azure DevOps, a spreadsheet…). Customer-facing material stays on the PM side, away from code.
+
+| Fact | Owner | PM tool gets |
+|---|---|---|
+| Ticket content (AC, metadata, tests) | engineering repo `docs/tickets/` | link + title |
+| Ticket status, iteration, waiting-on, blocked reason | `pipeline.yaml`, ticket front matter | status field / backlog row + short status note |
+| Done evidence (`dod` result, PR link, test summary) | `docs/tests/<KEY>/`, GitHub | link + one-line summary |
+| Designs, decisions | `docs/design/`, `docs/decisions/` | links, never copies |
+| Order, sprint / wave, priority | PM tool | nothing flows back; the orchestrator reads it only to pick the next ticket |
+
+**Mechanism:** `tools/pm_sync.py` (new) defines the adapter interface (`push(status_events)`) and loads the adapter named in the project's `pm_sync.yaml` (adapter, target path or URL, ticket key ↔ PM item id). An external adapter is referenced by module path or installed package, so company-specific code never enters this package.
+
+| Rule | Detail |
+|---|---|
+| Direction | engineering → PM tool only |
+| When | after each pipeline stop (iteration, approval wait, PR, done) and on demand `pm_sync.py push` |
+| Scope of writes | only fields or marked blocks the sync owns (`<!-- sfg:begin KEY -->` … `<!-- sfg:end -->` in files); never PM-written text |
+| Idempotent | re-running writes the same result; no duplicate rows or comments |
+| Text | plain status, verdict first (AI-06); anything sent to the customer goes through a human (AI-01) |
+| Secrets | API tokens from env / secret store, never in `pm_sync.yaml` |
+| Failure | sync failure is reported, never blocks the pipeline or changes ticket state |
+
+**New work from the PM side:** an item planned in the PM tool becomes a ticket in `docs/tickets/` through intake before any work starts (G3). From then on the ticket owns status.
+
+**Adapters**
+| Adapter | Where it lives | Writes |
+|---|---|---|
+| `markdown` / `csv` | this package | a status table file, for teams without a PM tool |
+| `jira` | this package (generic REST) | status transition, comment, links. If Jira is the system of record (`tracker-setup.md` option B), ticket content flows Jira → repo at intake; status still flows repo → Jira [med: field names differ per Jira setup] |
+| company or method adapters (e.g. a consultancy's own project-folder format) | outside this package: the company's own plugin or repo | whatever that method needs; must follow the rules above |
+
+| Open decision | Default |
+|---|---|
+| PM side per project | none |
+| Who may edit synced blocks by hand | nobody; edit the source in the engineering repo |

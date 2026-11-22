@@ -29,7 +29,7 @@ case_fields:            # one entry in cases:
 
 agreed_extra_fields:
   origin: "[T-nn, A-nn] — which source cases it came from"
-  status: "accepted | rejected"
+  status: "proposed | accepted | rejected — align writes proposed; only a human sets accepted/rejected; align --check fails while any case is proposed"
   reason: "required when rejected; also when one source's case was changed in merging"
 
 results_file:           # results/iter-N.yaml

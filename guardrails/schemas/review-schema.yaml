@@ -1,0 +1,20 @@
+# Tech-lead review schema. Per ticket: docs/tests/<KEY>/review/iter-N.yaml, written by the tech-lead-reviewer
+# agent (read-only on code). Checked by tools/dev_cycle.py (report, dod) and tools/pipeline.py.
+version: 1
+severities: [blocking, major, minor]
+statuses: [open, fixed, disputed, waived]
+file_fields:
+  iteration: "N — the iteration reviewed"
+  commit: "sha reviewed, or 'working tree'"
+  verdict: "pass | changes_needed"
+  findings: "list of findings (may be empty)"
+finding_fields:
+  id: "R-nn, unique per ticket; keep the id when a finding carries over to the next iteration"
+  rule: "guardrail ID (HG-xx, PR-xx, AI-xx), rubric check id (design.*), or build-guide rule (build/apex.md#3)"
+  file: "repo-relative path"
+  line: "line number, or 0 for whole file"
+  severity: "one of severities"
+  evidence: "what was seen, quoted or summarised"
+  fix: "the change that resolves it"
+  status: "one of statuses; disputed needs a developer reason in dispute; waived needs a waiver reference (PR-07) set by a human"
+blocking_rule: "verdict pass requires no finding with severity blocking and status open or disputed"

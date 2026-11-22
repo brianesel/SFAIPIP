@@ -1,5 +1,5 @@
 # Project guardrails = pipeline baseline (sf-ai-dev-pipeline) + overrides. Do not copy baseline rules here; only deviations.
-baseline: sf-ai-dev-pipeline@0.12.0
+baseline: sf-ai-dev-pipeline@0.13.0
 path: ""                      # existing-org | new-org (set in intake)
 team_profile: ""              # solo | small | multi-team (set in intake)
 team:
@@ -34,6 +34,8 @@ dev:
   require_agreed_tests: true   # block force-app writes until the active ticket has a valid agreed test set
   class_coverage_min: 85       # per class in the ticket (baseline org-wide minimum stays 75)
   loop_guard: 3                # same case failing N iterations → escalate
+  base_branch: main            # pipeline.py opens PRs against this branch
+  pipeline: {context_org: ""}  # optional read-only org alias for the context pack's dependency query
   review: "1 human + 1 independent AI review"   # solo/small; multi-team: 2 humans
 overrides: []
 #  - check: tests.coverage
