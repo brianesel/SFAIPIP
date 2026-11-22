@@ -23,6 +23,7 @@ Three layers: `guardrails/` (what must hold) · `best-practices/` (what good loo
 - Confidence tag on every claim: `[verified]` checked this session · `[high]` · `[med]` + gap · `[low]` + check · `[dunno]` + how to find out. Source every claim (PR-02).
 - Ask only gaps, ≤ 4 questions per round (PR-01).
 - Scope changes → change request (PR-05). Patterns per the pattern register (PR-06).
+- Simple first: the least code that meets the AC and the hard rules, at the project's structure level (ARCH-007). No speculative abstraction, no comments that restate code (`best-practices/clean-apex.md`).
 - Building metadata: follow the matching guide in `best-practices/build/` (Flows, Apex, access, objects, UI, LWC, reports, integration, Agentforce).
 - Architecture: follow `best-practices/architecture/`. When options have no clear winner, fill the decision card (facts + proposal) and let the named human choose (PR-15). Never pick silently.
 - Text for other people: verdict first, plain words, neutral tone (AI-06).

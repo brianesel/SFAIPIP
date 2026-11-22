@@ -7,6 +7,7 @@ When no option is clearly better for every project, the choice goes to a **decis
 
 | Guide | Decision card | Package policy |
 |---|---|---|
+| `structure-level.md` | ARCH-007 structure level | keep existing if consistent; else AI proposes from drivers, human decides |
 | `trigger-framework.md` | ARCH-001 trigger framework | keep existing; **none yet → always ask** |
 | `api-and-integration.md` | ARCH-002 inbound API style | **decide per interface** in `docs/design/integration-inventory.md` (pending rows block G2) |
 | `api-and-integration.md` | ARCH-003 integration topology | per project; usually mixed |

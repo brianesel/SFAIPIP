@@ -69,6 +69,11 @@ def g1(cfg, root):
     for k, v in (cfg.get("architecture") or {}).items():
         if str(v).strip().lower() in ("pending", "", "none"):
             p.append(f"architecture.{k} pending → a named human chooses on the decision card (PR-15)")
+    level = (cfg.get("architecture") or {}).get("structure_level")
+    if level is None:
+        p.append("architecture.structure_level missing → add it and decide ARCH-007 (PR-15)")
+    elif str(level).strip().lower() not in ("pending", "", "none", "keep-existing", "lean", "standard", "enterprise"):
+        p.append(f"architecture.structure_level '{level}' unknown (keep-existing | lean | standard | enterprise)")
     ap = cfg.get("approval") or {}
     if str(ap.get("status", "")).upper() != "APPROVED" or not ap.get("approved_by") or not ap.get("date"):
         p.append("project guardrails not approved (approval.status/approved_by/date)")

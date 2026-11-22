@@ -165,6 +165,8 @@ Runs every iteration, read-only, fresh context, without the developer's reasonin
 | Tester evidence present for every pass | AI-05 | yes |
 | Out-of-ticket changes not explained | PR-05 (cross-check with impact tester) | yes, unless approved |
 | Every changed component mapped to a feature; generated map current | PR-12, AI-02, `system_map.py lint --changed` | yes |
+| Simplicity: same AC and hard rules possible with clearly fewer classes, layers or lines; anything above the structure level (ARCH-007) without a second use or test seam | `clean-apex.md`, `structure-level.md`, `design.speculative_generality` | major, simpler alternative named |
+| Comments that restate code; required why-comments missing (`SYSTEM_MODE`, `without sharing`, suppressions) | `clean-apex.md` § Comments, HG-01, HG-06 | minor; missing required why-comment is blocking |
 | Touched code not worse | PR-10 | major |
 | Clean-code rubric | `guardrails/rubric/code-design.yaml`, `tests.yaml` | minor |
 

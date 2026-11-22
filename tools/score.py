@@ -30,6 +30,9 @@ except ImportError:
 RUBRIC_DIR = Path(__file__).resolve().parent.parent / "guardrails" / "rubric"
 
 
+STRUCTURE_LEVELS = ("lean", "standard", "enterprise")
+
+
 def load_rubric(rubric_dir):
     cfg = yaml.safe_load((rubric_dir / "pillars.yaml").read_text())
     aspects = []
@@ -49,6 +52,13 @@ def apply_project(proj, aspects, results):
     notes = []
     today = dt.date.today()
     checks = {c["id"]: c for a in aspects for c in a["checks"]}
+    level = str((proj.get("architecture") or {}).get("structure_level", "")).strip().lower()
+    if level in STRUCTURE_LEVELS:
+        for c in checks.values():
+            for k, v in ((c.get("by_structure_level") or {}).get(level) or {}).items():
+                if k in ("weight", "zero_at", "full_at", "measure", "anchors"):
+                    c[k] = v
+        notes.append(f"structure level {level} (ARCH-007) applied")
     for o in proj.get("overrides") or []:
         c = checks.get(o.get("check"))
         if not c:

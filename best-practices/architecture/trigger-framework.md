@@ -36,7 +36,7 @@ Sources: see end. Confidence: non-negotiables [high]; option comparison [med] (f
 | A framework exists but is used inconsistently | present: keep-existing + migration items vs switch; human decides |
 | **No framework exists yet** | **always ask.** The AI fills ARCH-001 with project facts and the trade-offs of A, B, C — no default, no recommendation as the answer — and a named human chooses |
 
-Signals to show the human (not a verdict): small team + low density favours A's simplicity; Flow + Apex mixed on busy objects favours B's ordering and Setup bypass; multi-team / ISV / existing fflib favours C.
+Signals to show the human (not a verdict): the project's structure level (ARCH-007: Lean → A, Standard → A or B, Enterprise → C); small team + low density favours A's simplicity; Flow + Apex mixed on busy objects favours B's ordering and Setup bypass; multi-team / ISV / existing fflib favours C.
 
 ## Automation density (Salesforce guidance, 2026)
 Salesforce's record-triggered decision guide now ranks Flow vs Apex by **automation density**: number of automations per object, record volume (UI vs batch/integration scale), and dependency sprawl (cascades into other objects; around five or more related objects counts as high). High density → code-based framework with strict control; low density → declarative-first is fine. Evaluation (01) measures this per busy object; the result feeds ARCH-001.

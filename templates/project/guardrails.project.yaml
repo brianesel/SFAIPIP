@@ -1,5 +1,5 @@
 # Project guardrails = pipeline baseline (sf-ai-dev-pipeline) + overrides. Do not copy baseline rules here; only deviations.
-baseline: sf-ai-dev-pipeline@0.11.0
+baseline: sf-ai-dev-pipeline@0.12.0
 path: ""                      # existing-org | new-org (set in intake)
 team_profile: ""              # solo | small | multi-team (set in intake)
 team:
@@ -20,6 +20,7 @@ orgs:                          # prod guard + sandbox lock (tools/org_guard.py)
   evaluation_readonly: []      # orgs under evaluation: read-only (HG-08)
   scratch_allowed: []          # scratch org aliases allowed when TrialExpirationDate is set
 architecture:                  # decision cards in docs/decisions/ARCH-*.md; values: pending | <choice> | n/a
+  structure_level: pending     # ARCH-007: keep-existing | lean | standard | enterprise (sets rubric targets in score.py)
   trigger_framework: pending   # ARCH-001: keep-existing | A minimal handler | B metadata-driven | C fflib domain | D in-house (none yet → always ask)
   inbound_api: per-interface   # ARCH-002: decided per row in docs/design/integration-inventory.md (package policy)
   integration_topology: pending  # ARCH-003: point-to-point | middleware-hub | event-driven | mixed | n/a

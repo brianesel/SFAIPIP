@@ -19,6 +19,7 @@ Changing frameworks later means touching every trigger. The choice sets how bypa
 | Busiest objects + automation density (quantity · volume · sprawl) | | Execution Map |
 | Flows and Apex on the same objects? | | Execution Map |
 | Team profile, admins building Flows? | | guardrails.project.yaml |
+| Structure level (ARCH-007) | | guardrails.project.yaml → architecture.structure_level |
 | Packaged / ISV app? | | discovery |
 
 ## Options

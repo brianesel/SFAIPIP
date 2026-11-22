@@ -3,6 +3,9 @@
 # Thresholds are [low] defaults: tune in calibration. PMD rule names [med]: verify with
 #   sf code-analyzer rules --rule-selector pmd
 # Legacy orgs: score honestly here; phase 2 enforces "changed file must not get worse".
+# Simple first (best-practices/clean-apex.md). by_structure_level: per ARCH-007 level (lean | standard | enterprise),
+#   tools/score.py replaces weight / zero_at / full_at / measure / anchors before project overrides apply.
+#   No level or keep-existing → the check's own values (= standard).
 aspect: code_design
 name: Code design (clean Apex)
 checks:
@@ -100,9 +103,9 @@ checks:
     pillar: opex
     weight: 4
     anchors:
-      0: "Comments restate code, are outdated or misleading; public APIs undocumented."
-      50: "Public/@AuraEnabled/invocable methods documented; some noise comments."
-      100: "Comments explain why (business rule, platform quirk, workaround with link); no noise; public APIs documented."
+      0: "Comments restate code, are outdated or misleading; required why-comments (SYSTEM_MODE, without sharing, suppressions) missing; public APIs undocumented."
+      50: "Required why-comments and public API docs present; some comments still restate code."
+      100: "No comments that restate code; why-comments only where clean-apex.md § Comments requires or allows them; public APIs documented."
 
   # --- Null, validations, guard clauses (CAC ch.6) ---
   - id: design.guard_clauses
@@ -140,7 +143,16 @@ checks:
     anchors:
       0: "God classes mixing query, logic, DML, callout and UI; copy-paste instead of reuse; static everything."
       50: "Most classes have one role; some mixed responsibilities; abstraction used unevenly."
-      100: "One responsibility per class (SOLID single responsibility); behavior extended via interfaces/strategy, not edits everywhere; no unused abstraction (YAGNI)."
+      100: "One responsibility per class (SOLID single responsibility); extension points (interface, strategy) only where a second real variant exists; no unused abstraction (YAGNI)."
+
+  - id: design.speculative_generality
+    type: judged
+    pillar: opex
+    weight: 5
+    anchors:
+      0: "Layers, interfaces, factories, wrappers or settings beyond the structure level with no second use or test seam; parameters and options nobody uses."
+      50: "Mostly at the structure level; a few speculative abstractions or forwarding wrappers."
+      100: "Least code for the AC at the structure level; every interface, layer and setting has a second real use or a test seam."
 
   # --- Modularity, coupling, cohesion (CAC ch.10) ---
   - id: design.layering
@@ -151,6 +163,9 @@ checks:
     full_at: 100
     measure: "% of SOQL statements located in selector classes (and DML in service/unit-of-work), excluding tests"
     evidence: regex scan by class role
+    by_structure_level:
+      lean: {weight: 4, measure: "% of SOQL statements used by 2+ classes that live in a selector; DML in services, not triggers or controllers"}
+      enterprise: {zero_at: 70}
   - id: design.coupling
     type: measured
     pillar: opex
@@ -177,6 +192,17 @@ checks:
       0: "Callouts, queries and time/user lookups are hardwired; logic cannot be tested without real DML/callouts."
       50: "Some seams (interfaces, @TestVisible injection) at external boundaries only."
       100: "External systems and data access behind interfaces; dependencies injected (constructor/factory/Stub API); core logic testable in memory."
+    by_structure_level:
+      lean:
+        anchors:
+          0: "Callouts hardwired; logic that needs a callout or time cannot be tested."
+          50: "Callouts mocked; some interfaces with a single non-test implementation."
+          100: "Seams only at callouts and true test needs (HttpCalloutMock, Stub API, @TestVisible); no interface with a single non-test implementation."
+      standard:
+        anchors:
+          0: "Callouts, queries and time/user lookups are hardwired; logic cannot be tested without real DML/callouts."
+          50: "Callouts mocked; time and user context hardwired."
+          100: "Seams at callouts, time, user context and selectors on busy objects; no interface with a single non-test implementation."
 
   # --- General clean-code extras ---
   - id: design.magic_literals
