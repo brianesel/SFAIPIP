@@ -7,7 +7,7 @@
 | # | Step | Who | Guardrails | How checked |
 |---|---|---|---|---|
 | 1 | Mode pick: count objects, Apex lines, Flows, integrations | AI | HG-08, PR-02 | read-only queries; counts sourced |
-| 2 | Retrieve metadata into a DX project (read-only); org listed in `orgs.evaluation_readonly` | AI / dev | HG-08, HG-11 | `tools/org_guard.py` blocks every write to that org |
+| 2 | Retrieve metadata into a DX project (read-only); org listed in `orgs.evaluation_readonly` | AI / dev | HG-08, HG-11, HG-12 | `tools/org_guard.py` blocks every write to that org and every org command below its limit reserve (`tools/org_limits.py show <alias>` first) |
 | 3 | Rule coverage: inventory installed rules, generate config from the analyzer map | AI | PR-14 | `tools/rule_map.py inventory`, `generate`, `coverage` |
 | 4 | Scan: Code Analyzer with `Recommended` + `Project` selectors, Python ≥3.10 for Flow rules | AI | HG-01, HG-02, HG-03, HG-04, HG-05 | `sf code-analyzer run … --rule-selector Recommended --rule-selector Project` → `docs/wiki/_data/code-analyzer.json` |
 | 5 | Triage analyzer hits (false positives, reachability) | AI drafts, dev confirms | PR-02, AI-02 | each counted finding has file + reason |

@@ -10,7 +10,7 @@ Status: workflow defined; release scripts are a later version — checks below a
 | 1 | Release scope = Done tickets only; list REQ/CR per ticket | PM | PR-12, PR-05 | traceability shows every ticket at G4 |
 | 2 | Build the release from merged PRs, using the project's delivery model (ARCH-006) | dev + AI | PR-12, AI-01 | manifest / package version reviewed by tech lead |
 | 3 | Full Code Analyzer on the release scope | AI | HG-01, HG-02, HG-03, HG-10 | 0 sev 1–2 (or valid waiver) |
-| 4 | Validate deploy to staging/UAT with local tests | dev | HG-09, HG-11 | `sf project deploy validate --test-level RunLocalTests`; staging must be a verified write-allowed sandbox |
+| 4 | Validate deploy to staging/UAT with local tests | dev | HG-09, HG-11, HG-12 | `sf project deploy validate --test-level RunLocalTests`; staging must be a verified write-allowed sandbox above its limit reserve |
 | 5 | UAT sign-off on release scope | customer approver | G5, AI-01 | signed UAT record |
 | 6 | Rollback plan + pre-deploy snapshot (metadata + affected data) | dev | PR-13 | snapshot location in release notes |
 | 7 | Change window approved (CAB / approver) | approver | G5 | approval recorded |

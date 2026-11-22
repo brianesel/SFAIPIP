@@ -19,7 +19,7 @@ Test design ─► Implement ─► Test ─► Feedback ─┬─ code defect �
 | 4 | Align: both / tester-only / AI-only / gaps → decide each case | tester + dev | PR-08, AI-01 | `dev_cycle.py align <KEY>` then `--check` |
 | 5 | Implement, following the ticket pattern and the build guide for each metadata type touched (`best-practices/build/`) | dev + AI | PR-08, PR-06, HG-06, HG-07, HG-03 | hook blocks force-app until agreed tests valid; review against the build guide's non-negotiables |
 | 6 | Write the automated tests named in `agreed.yaml` | dev + AI | HG-04, HG-05 | Code Analyzer; `dod` checks methods exist |
-| 7 | Run tests in dev/QA sandbox, import results | dev + AI | HG-09, HG-11, AI-05 | `tools/org_guard.py` hook allows only verified write-allowed sandboxes; `dev_cycle.py import-apex` |
+| 7 | Run tests in dev/QA sandbox, import results | dev + AI | HG-09, HG-11, HG-12, AI-05 | `tools/org_guard.py` hook allows only verified write-allowed sandboxes above their limit reserve; `dev_cycle.py import-apex` |
 | 8 | Static scan of changed files with project rules | AI | HG-01, HG-02, HG-10 | `--rule-selector Recommended --rule-selector Project` → `code-analyzer.json`, 0 sev 1–2 |
 | 9 | Manual/UAT cases with evidence | tester | AI-05 | evidence required per case |
 | 10 | Feedback: classify each failure | team | PR-05, AI-04 | `dev_cycle.py report <KEY>` |

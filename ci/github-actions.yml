@@ -22,6 +22,8 @@ jobs:
         run: |
           KEY=$(echo "${GITHUB_HEAD_REF}" | sed -nE 's#^[a-z]+/([A-Z]+-[0-9]+).*#\1#p')
           if [ -n "$KEY" ]; then python3 sf-ai-dev-pipeline/tools/dev_cycle.py dod "$KEY"; else echo "no ticket key in branch name"; exit 1; fi
+      - name: System map (changed components mapped to a feature, generated layer current)
+        run: python3 sf-ai-dev-pipeline/tools/system_map.py lint --changed --base "origin/${GITHUB_BASE_REF}"
       - name: Code Analyzer (Recommended + Project rules, block on Critical/High)
         run: |
           npm install -g @salesforce/cli

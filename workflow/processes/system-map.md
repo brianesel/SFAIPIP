@@ -1,6 +1,6 @@
 # Process — System map (design, draft)
 
-**Status:** draft for review, 2026-11-23. Nothing below is built yet. Owner: tech lead.
+**Status:** built 2026-11-23 (`tools/system_map.py`: generate, query, search, lint, questions; schema `guardrails/schemas/system-map-schema.yaml`). Apex field-write detection is a simple parse [med] (open decision 1); the code-graph link is not built (use a code-graph tool alongside). Owner: tech lead.
 
 **Verdict:** every project keeps one living map of the org in three linked layers: processes (how users work), features (what exists and which tests prove it), automation (what fires, in which order, writing which fields). The automation layer is generated from retrieved metadata and never hand-edited. People write only what metadata cannot show: purpose and how users work. The map is seeded by evaluation (01), grows with every ticket, and is checked in CI so it cannot drift.
 

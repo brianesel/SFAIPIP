@@ -1,6 +1,6 @@
 # Process — Automated agent pipeline (design, draft)
 
-**Status:** phase 1 built 2026-11-23 (`tools/pipeline.py`, `tools/context_pack.py`, `agents/`, `skills/sfg-pipeline`, tests in `tests/`); phases 2–3 are design. Owner: tech lead.
+**Status:** phases 1–3 built 2026-11-23 (`tools/pipeline.py`, `context_pack.py`, `impact.py`, `system_map.py`, `recording_to_cases.py`, `uat.py`, `agents/`, `skills/sfg-pipeline`, `ci/pipeline-run.yml`; tests in `tests/` with a fake agent). Not yet run against a real sandbox: agent prompts need tuning on the first real tickets. Owner: tech lead.
 
 **Run it:** `python3 tools/pipeline.py run <KEY> --request "<text>"` from the project folder; run again after each human step. `pipeline.py status <KEY>` shows the state. Exit 0 = PR open, 3 = waiting for a human, 1 = stopped (escalation).
 
@@ -49,6 +49,7 @@ Request ─► Context pack (draft) ─► Intake agent ─► ticket Ready (G3)
 | Parallel checks | the four checkers run as parallel subprocesses; the verdict waits for all four |
 | Loop guard | counters in `pipeline.yaml`; at the limit the script stops and escalates (PR-09, AI-04). No flag to bypass it |
 | Git | the script commits and pushes each iteration and opens the PR (`gh pr create`). Prerequisite: `gh` CLI installed and authenticated [verified: not installed on the author's machine 2026-11-23] |
+| Org limits (HG-12) | Before each agent step the sandbox must be above its limit reserve (`tools/org_limits.py`). DailyApiRequests used per step is measured (remaining before vs after; parallel checks measured as one block) and recorded in `pipeline.yaml` and the PR body. A run over `orgs.limits.run_budget` escalates with reason `budget`; resolving the escalation resets the run counter. The org guard also blocks every org command below the reserve, reads included, so agents can't drain the org between measurements. |
 | Hooks | `org_guard.py` and `gate_check.py` stay in Claude Code hooks, so they fire inside every agent call [verified 2026-11-23: a headless run with `--plugin-dir` was blocked by `gate_check.py` writing to force-app without sign-off] |
 | From chat | optional thin skill `sfg-pipeline` that only runs `pipeline.py` and shows its output |
 

@@ -18,6 +18,7 @@ guardrails:
   HG-09: {type: hard, rule: "AI never deploys or changes data in production; humans run approved releases (G5)", override: "no", enforced_by: [org_guard.py, ci, human], phases: [dev, delivery]}
   HG-10: {type: hard, rule: "Code Analyzer severity 1–2 findings block merge and deploy", override: waiver, enforced_by: [ci, dev_cycle.py dod], phases: [dev, delivery]}
   HG-11: {type: hard, rule: "Sandbox lock: AI writes only to orgs in orgs.write_allowed that are verified sandboxes (Organization.IsSandbox); unknown target = blocked", override: "no", enforced_by: [org_guard.py], phases: [eval, dev, delivery]}
+  HG-12: {type: hard, rule: "Limit reserve: AI never spends an org's daily-limit reserve (reads included); org commands stop below the reserve, unreadable limits = blocked, and each pipeline run stays within its API budget", override: "no", enforced_by: [org_guard.py, org_limits.py, pipeline.py], phases: [eval, dev, delivery]}
 
   # ---------- Gates ----------
   G0: {type: gate, rule: "Intake: baseline pinned, path, team profile, roles named", override: "no", enforced_by: [status.py], phases: [intake]}

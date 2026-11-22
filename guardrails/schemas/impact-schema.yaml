@@ -1,0 +1,22 @@
+# Impact files. Per ticket: docs/tests/<KEY>/. Written by tools/impact.py (via the impact-tester agent);
+# approvals written by a human only (AI-01). Checked by tools/dev_cycle.py dod and tools/pipeline.py.
+version: 1
+baseline_file:   # baseline.yaml — before any production change (after iteration 0's characterization tests)
+  date: "YYYY-MM-DD"
+  commit: "sha"
+  tests: "{Class.method: Pass|Fail|Skip} — every local test"
+  snapshot: "{<Object>.<RecordId>: {<Field>: value}} — records the regression scenarios touch"
+impact_file:     # impact/iter-N.yaml
+  iteration: "N"
+  impacts: "list of items"
+  unapproved: "count"
+impact_item:
+  id: "I-xxxxxxxx — stable hash of layer + item; approvals refer to it"
+  layer: "behaviour (existing test changed outcome or disappeared) | data (field changed) | scope (component outside the ticket changed)"
+  item: "Class.method · Object.RecordId.Field · component name"
+  before: ""
+  after: ""
+  class: "in_scope (explained by the ticket) | approved | unapproved (blocks)"
+  reason: ""
+approvals_file:  # impact-approvals.yaml — human only
+  approvals: "list of {id, approved_by, date, reason}; all four required"

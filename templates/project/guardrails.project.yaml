@@ -1,5 +1,5 @@
 # Project guardrails = pipeline baseline (sf-ai-dev-pipeline) + overrides. Do not copy baseline rules here; only deviations.
-baseline: sf-ai-dev-pipeline@0.13.0
+baseline: sf-ai-dev-pipeline@0.15.0
 path: ""                      # existing-org | new-org (set in intake)
 team_profile: ""              # solo | small | multi-team (set in intake)
 team:
@@ -19,6 +19,14 @@ orgs:                          # prod guard + sandbox lock (tools/org_guard.py)
   production: []               # production aliases: AI writes always blocked (humans deploy in 07-delivery)
   evaluation_readonly: []      # orgs under evaluation: read-only (HG-08)
   scratch_allowed: []          # scratch org aliases allowed when TrialExpirationDate is set
+  limits:                      # HG-12 limit reserve (tools/org_limits.py, enforced by org_guard.py + pipeline.py)
+    enabled: true
+    watch: [DailyApiRequests, DailyAsyncApexExecutions]   # names from `sf org list limits`
+    reserve_pct: 50            # AI org commands stop when a watched limit has less than this % left
+    production_reserve_pct: 80 # higher reserve for production aliases (AI reads only)
+    run_budget: 3000           # max DailyApiRequests one pipeline run may use before it escalates
+    refresh_every: 25          # re-read limits every N org commands …
+    refresh_minutes: 15        # … or after N minutes
 architecture:                  # decision cards in docs/decisions/ARCH-*.md; values: pending | <choice> | n/a
   structure_level: pending     # ARCH-007: keep-existing | lean | standard | enterprise (sets rubric targets in score.py)
   trigger_framework: pending   # ARCH-001: keep-existing | A minimal handler | B metadata-driven | C fflib domain | D in-house (none yet → always ask)
@@ -35,7 +43,7 @@ dev:
   class_coverage_min: 85       # per class in the ticket (baseline org-wide minimum stays 75)
   loop_guard: 3                # same case failing N iterations → escalate
   base_branch: main            # pipeline.py opens PRs against this branch
-  pipeline: {context_org: ""}  # optional read-only org alias for the context pack's dependency query
+  pipeline: {context_org: "", system_map: true}  # context_org: optional read-only alias (dependencies, audit trail); system_map: lint before PR
   review: "1 human + 1 independent AI review"   # solo/small; multi-team: 2 humans
 overrides: []
 #  - check: tests.coverage
@@ -50,6 +58,9 @@ waivers: []                   # hard gates: existing files only, must expire
 #    exit: M-01
 #    owner: ""
 #    expires: 2027-01-31
+uat:                           # UAT personas (phase 3): sandbox users with exactly the real users' profile + permission sets.
+  personas: {}                 # e.g. {sales_rep: {alias: uat-salesrep, profile: "Sales User", permission_sets: [Invoice_User]}}
+                               # a human creates the user and runs `sf org login web --alias uat-salesrep` once
 approval:
   status: DRAFT               # DRAFT | APPROVED
   approved_by: ""

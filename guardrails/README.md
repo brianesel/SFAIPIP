@@ -21,6 +21,7 @@ Also here: `rubric/` (how guardrails are measured and scored) · `schemas/` (req
 | HG-09 | AI never deploys or changes data in production; humans run approved releases (G5) | no | org_guard.py, ci, human | dev, delivery |
 | HG-10 | Code Analyzer severity 1–2 findings block merge and deploy | waiver | ci, dev_cycle.py dod | dev, delivery |
 | HG-11 | Sandbox lock: AI writes only to orgs in orgs.write_allowed that are verified sandboxes (Organization.IsSandbox); unknown target = blocked | no | org_guard.py | eval, dev, delivery |
+| HG-12 | Limit reserve: AI never spends an org's daily-limit reserve (reads included); org commands stop below the reserve, unreadable limits = blocked, and each pipeline run stays within its API budget | no | org_guard.py, org_limits.py, pipeline.py | eval, dev, delivery |
 
 ## Gates
 

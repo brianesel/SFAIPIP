@@ -1,0 +1,97 @@
+# Copy to .github/workflows/sf-ai-pipeline-run.yml in the project. Runs tools/pipeline.py for a GitHub issue.
+# [med] action and CLI versions: pin to current ones before use. Not run by this package's tests.
+#
+# Start: add the label `pipeline` to an issue. The issue body is the request; "[KEY] ..." in the title sets the
+#        ticket key, else GH-<issue number>.
+# Continue: after doing the human step the pipeline asked for (on branch feature/<KEY>), comment `/pipeline continue`.
+#           Only owners, members and collaborators can continue a run.
+# Secrets: ANTHROPIC_API_KEY · SF_DEV_AUTH_URL (sfdx auth URL of the dev sandbox; the alias `dev` must be in
+#          orgs.write_allowed) · optional SF_UAT_<PERSONA>_AUTH_URL per UAT persona (alias = uat.personas.<p>.alias).
+name: sf-ai-pipeline-run
+on:
+  issues: {types: [labeled]}
+  issue_comment: {types: [created]}
+permissions: {contents: write, pull-requests: write, issues: write}
+concurrency: {group: "pipeline-${{ github.event.issue.number }}", cancel-in-progress: false}
+jobs:
+  run:
+    if: >-
+      (github.event_name == 'issues' && github.event.label.name == 'pipeline') ||
+      (github.event_name == 'issue_comment' && !github.event.issue.pull_request &&
+       startsWith(github.event.comment.body, '/pipeline continue') &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/setup-node@v4
+        with: {node-version: "20"}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "17"}
+      - name: Tools
+        run: |
+          pip install pyyaml
+          npm install -g @salesforce/cli @anthropic-ai/claude-code
+          sf plugins install code-analyzer
+          npx --yes playwright install --with-deps chromium
+      - name: Ticket key
+        id: key
+        env: {TITLE: "${{ github.event.issue.title }}", NUM: "${{ github.event.issue.number }}"}
+        run: |
+          KEY=$(printf '%s' "$TITLE" | sed -nE 's/^\[([A-Z]+-[0-9]+)\].*/\1/p')
+          echo "key=${KEY:-GH-$NUM}" >> "$GITHUB_OUTPUT"
+      - name: Continue on the ticket branch if it exists
+        env: {KEY: "${{ steps.key.outputs.key }}"}
+        run: git fetch origin "feature/$KEY" && git switch "feature/$KEY" || echo "new ticket"
+      - name: Authenticate the dev sandbox and UAT personas
+        env:
+          SF_DEV_AUTH_URL: "${{ secrets.SF_DEV_AUTH_URL }}"
+          SECRETS_JSON: "${{ toJSON(secrets) }}"
+        run: |
+          printf '%s' "$SF_DEV_AUTH_URL" > "$RUNNER_TEMP/dev.url"
+          sf org login sfdx-url --sfdx-url-file "$RUNNER_TEMP/dev.url" --alias dev
+          python3 - <<'PY'
+          import json, os, subprocess, yaml
+          secrets = json.loads(os.environ["SECRETS_JSON"])
+          personas = (yaml.safe_load(open("guardrails.project.yaml")).get("uat") or {}).get("personas") or {}
+          for name, p in personas.items():
+              url = secrets.get(f"SF_UAT_{name.upper()}_AUTH_URL")
+              if url:
+                  f = os.path.join(os.environ["RUNNER_TEMP"], f"{name}.url")
+                  open(f, "w").write(url)
+                  subprocess.run(["sf", "org", "login", "sfdx-url", "--sfdx-url-file", f, "--alias", p["alias"]], check=True)
+                  os.remove(f)
+          PY
+          rm -f "$RUNNER_TEMP"/*.url
+      - name: Run the pipeline
+        id: run
+        env:
+          KEY: "${{ steps.key.outputs.key }}"
+          BODY: "${{ github.event.issue.body }}"
+          ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}"
+          GH_TOKEN: "${{ github.token }}"
+        run: |
+          git config user.name "sf-ai-pipeline[bot]"
+          git config user.email "sf-ai-pipeline@users.noreply.github.com"
+          printf '%s' "$BODY" > "$RUNNER_TEMP/request.md"
+          set +e
+          python3 sf-ai-dev-pipeline/tools/pipeline.py run "$KEY" --request-file "$RUNNER_TEMP/request.md" > "$RUNNER_TEMP/out.txt" 2>&1
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+          tail -n 40 "$RUNNER_TEMP/out.txt"
+      - name: Report on the issue
+        if: always()
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          KEY: "${{ steps.key.outputs.key }}"
+          CODE: "${{ steps.run.outputs.code }}"
+          NUM: "${{ github.event.issue.number }}"
+        run: |
+          {
+            echo "**Pipeline $KEY** — exit $CODE (0 = PR open · 3 = waiting for a human · 1 = stopped, see escalation.md)"
+            echo; echo '```'; tail -n 20 "$RUNNER_TEMP/out.txt"; echo '```'
+            echo "Branch: \`feature/$KEY\`. Do the step above on that branch, then comment \`/pipeline continue\`."
+          } > "$RUNNER_TEMP/comment.md"
+          gh issue comment "$NUM" --body-file "$RUNNER_TEMP/comment.md"

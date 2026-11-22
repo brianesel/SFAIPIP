@@ -1,0 +1,21 @@
+# System map written pages. See workflow/processes/system-map.md. Checked by tools/system_map.py lint.
+version: 1
+process_page:    # docs/wiki/map/processes/PROC-nn-<slug>.md, front matter
+  id: "PROC-nn"
+  name: ""
+  owner: "process owner"
+  steps: "list of {n, name, role, features: [FEAT-nn]}"
+  source: "person · date · discovery log / recording"
+feature_page:    # docs/wiki/map/features/FEAT-nn-<slug>.md, front matter
+  id: "FEAT-nn"
+  purpose: "one plain line (written by a person or drafted by AI and confirmed in PR review)"
+  aliases: "other words people use, for full-text search"
+  owner: ""
+  status: "planned | in_progress | live | retired"
+  processes: "[PROC-nn#step]"
+  req: "[REQ-nnn]"
+  tickets: "[KEY] — accepted automated tests of these tickets are added as tests_generated"
+  components: "list of {type, name, state?}; name must exist in force-app unless state: planned"
+  tests: "{automated: [Class.method], uat: [KEY/C-nn], recordings: [path]}"
+generated:       # never edit: docs/wiki/_data/map/map.json, generated-at.yaml, docs/wiki/map/index.md, objects/*.md
+  questions: "docs/wiki/_data/map/questions.yaml (written): {questions: [{q, query: [kind, args...], expect: [text]}]}"

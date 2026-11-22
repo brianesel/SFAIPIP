@@ -311,6 +311,24 @@ def open_blocking(doc):
             if f.get("severity") == "blocking" and f.get("status") in ("open", "disputed")]
 
 
+# ---------- impact (written by impact.py) ----------
+def impact_approvals(d):
+    out = {}
+    for a in (load_yaml(d / "impact-approvals.yaml", {}) or {}).get("approvals") or []:
+        if a.get("id") and a.get("approved_by") and a.get("date") and a.get("reason"):
+            out[a["id"]] = a
+    return out
+
+
+def unapproved_impacts(d):
+    """None when no impact report exists; else unapproved items of the latest report."""
+    files = sorted((d / "impact").glob("iter-*.yaml"), key=lambda p: int(re.findall(r"\d+", p.stem)[0]))
+    if not files:
+        return None
+    ok = impact_approvals(d)
+    return [i for i in (load_yaml(files[-1], {}) or {}).get("impacts") or [] if i.get("class") == "unapproved" and i.get("id") not in ok]
+
+
 def ac_status(fm, ag, latest):
     acc = [c for c in ag.get("cases", []) if c.get("status") == "accepted"]
     res = (latest or {}).get("results", {})
@@ -420,6 +438,9 @@ def cmd_dod(root, key, pre_pr=False):
         viol = data.get("violations", data if isinstance(data, list) else [])
         high = [v for v in viol if int(v.get("severity", 5)) <= 2]
         checks.append(("Code Analyzer: 0 sev 1–2", [f"{len(high)} sev 1–2 findings"] if high else []))
+    left = unapproved_impacts(d)
+    if left is not None:
+        checks.append(("No unapproved impacts", [f"{i['id']} {i['layer']}: {i['item']}" for i in left]))
     _, review = latest_review(d)
     checks.append(("No open blocking review findings", validate_review(review) + [
         f"{f.get('id')} {f.get('rule')} {f.get('file')}" for f in open_blocking(review)] if review is not None

@@ -10,7 +10,7 @@ Three layers: `guardrails/` (what must hold) · `best-practices/` (what good loo
 
 ## Never
 - Build before design sign-off (G2); write production code before the ticket's agreed test set is valid (PR-08).
-- Deploy or change data in production (HG-09); change anything in an org under evaluation (HG-08); write to any org that is not a verified, write-allowed sandbox (HG-11). Use `tools/sf-safe` instead of `sf` if your tool has no hook. Never work around a block from `org_guard.py`.
+- Deploy or change data in production (HG-09); change anything in an org under evaluation (HG-08); write to any org that is not a verified, write-allowed sandbox (HG-11); spend an org's daily-limit reserve, reads included (HG-12). Use `tools/sf-safe` instead of `sf` if your tool has no hook. Never work around a block from `org_guard.py`.
 - Invent metadata names, APIs, limits or numbers (AI-02).
 - Approve, sign off, decide a CR, mark a test pass without evidence, or set a ticket done (AI-01, AI-05).
 - Read the tester's cases before writing your own (AI-03).

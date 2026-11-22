@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prod guard + sandbox lock for AI-run commands (HG-08, HG-09, HG-11).
+"""Prod guard + sandbox lock + limit reserve for AI-run commands (HG-08, HG-09, HG-11, HG-12).
 
 Read-only commands always pass. A command that writes to an org (deploy, anonymous Apex,
 test runs, data changes, package installs, org deletes) passes only when ALL hold:
@@ -9,6 +9,8 @@ test runs, data changes, package installs, org deletes) passes only when ALL hol
   4. org verified by query: Organization.IsSandbox = true            — or a scratch org
      (TrialExpirationDate set) when listed in orgs.scratch_allowed
 Non-sf HTTP writes (curl/wget -X POST/PATCH/PUT/DELETE) to Salesforce domains are blocked.
+Every sf command that calls an org, reads included, also needs the org's daily limits above the reserve
+(HG-12, tools/org_limits.py); local-only commands (config, alias, project generate, code-analyzer …) are exempt.
 
 modes:
   --hook                       Claude Code PreToolUse (Bash): JSON on stdin, exit 2 = block
@@ -32,6 +34,9 @@ try:
 except ImportError:
     yaml = None
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import org_limits  # noqa: E402
+
 CACHE_TTL = 24 * 3600
 SF_DOMAINS = re.compile(r"(salesforce\.com|force\.com|salesforce-sites\.com|cloudforce\.com)", re.I)
 
@@ -54,6 +59,10 @@ WRITE_PREFIXES = [
 ]
 LEGACY_WRITE = re.compile(r"^force:.*(deploy|execute|create|update|delete|upsert|import|push|install|assign|publish)", re.I)
 TARGET_FLAGS = ("--target-org", "-o", "-u", "--targetusername")
+LOCAL_ONLY = [("config",), ("alias",), ("plugins",), ("version",), ("help",), ("doctor",), ("info",), ("which",),
+              ("project", "generate"), ("project", "convert"), ("project", "list"), ("lightning", "generate"),
+              ("schema", "generate"), ("code-analyzer",), ("scanner",), ("org", "list"), ("org", "login"),
+              ("org", "logout"), ("autocomplete",), ("update",), ("search",), ("commands",)]
 
 
 # ---------- parsing ----------
@@ -191,6 +200,11 @@ MCP_TARGET_KEYS = ("usernameOrAlias", "targetOrg", "target_org", "target-org", "
 
 def decide_mcp(tool_name, tool_input, root):
     short = tool_name.split("__")[-1]
+    explicit = next((str(tool_input[k]) for k in MCP_TARGET_KEYS if tool_input.get(k)), None)
+    if explicit:
+        ok, r = org_limits.check(explicit, root, count=True)
+        if not ok:
+            return False, r, [(f"mcp {short}", explicit)]
     if not MCP_WRITE.search(short):
         return True, [], []
     alias = next((str(tool_input[k]) for k in MCP_TARGET_KEYS if tool_input.get(k)), None) or default_target(root)
@@ -210,6 +224,14 @@ def decide(cmd, root):
         if args is None:
             continue
         kind, words = classify(args)
+        if not any(tuple(words[:len(p)]) == p for p in LOCAL_ONLY) and words:
+            lim_alias = target_of(args) or default_target(root)
+            if lim_alias:
+                ok, r = org_limits.check(lim_alias, root, count=True)
+                if not ok:
+                    reasons += r
+                    writes.append((seg, lim_alias))
+                    continue
         if kind == "read":
             continue
         alias = target_of(args) or default_target(root)
@@ -263,7 +285,8 @@ def log(root, cmd, allowed, reasons, writes):
 
 def message(reasons):
     return ("ORG GUARD: command blocked.\n- " + "\n- ".join(reasons) +
-            "\nRead-only commands are fine. Writes go only to verified sandboxes in orgs.write_allowed. "
+            "\nRead-only commands are fine while the org is above its limit reserve (HG-12). "
+            "Writes go only to verified sandboxes in orgs.write_allowed. "
             "Production changes are run by a human (workflow/phases/07-delivery.md).")
 
 

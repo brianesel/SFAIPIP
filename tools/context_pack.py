@@ -4,7 +4,8 @@ See workflow/processes/automated-pipeline.md §7. Read-only: never writes to an 
 
 usage: context_pack.py <KEY> [--project DIR] [--org ALIAS] [--request-file F]
   Names come from the ticket's `metadata` list when the ticket exists, else from words in the request.
-  --org adds dependencies from the Tooling API (MetadataComponentDependency), read-only query.
+  --org adds dependencies (Tooling API MetadataComponentDependency) and recent Setup Audit Trail entries, read-only.
+  Execution order, field writers and features come from the system map (tools/system_map.py), built live.
 Writes docs/tests/<KEY>/context.md. Every item names its source (PR-02).
 """
 import json
@@ -14,6 +15,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import system_map  # noqa: E402
 from ticket_lint import parse  # noqa: E402
 
 MAX_HITS = 10
@@ -107,6 +109,42 @@ def dependencies(root, org, names):
     return out
 
 
+def automation(root, names):
+    auto, features, _ = system_map.build(root)
+    comps = auto["components"]
+    objects = {n.split(".")[0] for n in names if "." in n} | {n for n in names if n.endswith("__c")}
+    objects |= {comps[n]["object"] for n in names if comps.get(n, {}).get("object")}
+    L = []
+    for obj in sorted(o for o in objects if o in auto["objects"]):
+        for event in system_map.EVENTS:
+            rows = auto["objects"][obj][event]
+            if rows:
+                L.append(f"- {obj} on {event}: " + " → ".join(f"{r['type']}:{r['name']}" for r in rows) + " [source: system map]")
+    for n in [n for n in names if "." in n]:
+        ws = system_map.query({"automation": auto, "features": features, "processes": {}}, "writes", [n])
+        if ws:
+            L.append(f"- {n} written by: {', '.join(ws)} [source: system map]")
+    feats = system_map.features_using({"features": features}, {n.split(".")[-1] for n in names} | set(names))
+    L += [f"- feature {f}: {features[f].get('purpose', '')} — tests: {', '.join(system_map.feature_tests(features[f])) or 'none'} "
+          f"[source: {features[f]['path']}]" for f in feats]
+    return L
+
+
+def audit_trail(root, org, names):
+    if not org:
+        return ["- not queried (no --org given)"]
+    q = ("SELECT CreatedDate, CreatedBy.Name, Section, Display FROM SetupAuditTrail "
+         "WHERE CreatedDate = LAST_N_DAYS:180 ORDER BY CreatedDate DESC LIMIT 200")
+    r = subprocess.run(["sf", "data", "query", "--query", q, "--target-org", org, "--json"], cwd=root, capture_output=True, text=True)
+    try:
+        recs = json.loads(r.stdout).get("result", {}).get("records", [])
+    except json.JSONDecodeError:
+        return [f"- query failed [dunno: {r.stderr.strip()[:120]}]"]
+    hits = [x for x in recs if any(short(n) in (x.get("Display") or "") for n in names)]
+    return [f"- {x['CreatedDate'][:10]} {(x.get('CreatedBy') or {}).get('Name', '?')}: {x.get('Display')} "
+            f"[source: SetupAuditTrail, {org}]" for x in hits[:MAX_HITS]] or [f"- no entries mentioning these names in 180 days [source: SetupAuditTrail, {org}]"]
+
+
 def build(root, key, org=None, request=""):
     tf, fm = ticket_for(root, key)
     names = names_from(fm, request)
@@ -119,6 +157,8 @@ def build(root, key, org=None, request=""):
          "## Recent history of these files", *(git_history(root, [f for fs in files.values() for f in fs]) or ["- none [source: git log]"]), "",
          "## Tests that reference these components", *(covering_tests(root, names) or ["- none found"]), "",
          "## Dependencies (who references these components)", *dependencies(root, org, names), "",
+         "## Automation on these objects (execution order, field writers, features)", *(automation(root, names) or ["- none found"]), "",
+         "## Recent setup changes (Setup Audit Trail, about 180 days)", *audit_trail(root, org, names), "",
          "## Known constraints",
          "- read docs/wiki/pattern-register.md and docs/decisions/ before building [source: project docs]", ""]
     out = root / "docs/tests" / key / "context.md"
