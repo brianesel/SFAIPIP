@@ -1,5 +1,45 @@
 # SF AI development pipeline — v0.17
 
+> This is how I work,
+> So I force my agents to follow.
+> This is not magic,
+> Only configs to go.
+>
+> No deploys to production,
+> A hook stands at the door.
+> "Just one quick fix," says the agent.
+> The guard says: "Not anymore."
+>
+> Each sandbox is checked twice,
+> Each limit keeps half in store.
+> The AI may write in dev,
+> And UAT? Nevermore.
+>
+> It asks four questions at most,
+> Then waits for a human to say.
+> It never signs off a gate,
+> However politely it may.
+>
+> It tags each claim with confidence,
+> And cites where the facts came from,
+> Because "I'm fairly sure"
+> Has deployed to prod before. Then some.
+>
+> Two failures, then it stops,
+> Instead of looping all night.
+> It escalates to a person,
+> Who sighs, but sets it right.
+>
+> The tests come before the code,
+> The tester's set stays out of sight.
+> The agent writes its own first,
+> So nobody copies to get it right.
+>
+> So here are the rules in YAML,
+> And the rails in Python, too.
+> Not a brain, not a wizard,
+> Just a checklist with a view.
+
 Guardrails, best practices, workflows and an automated agent pipeline for AI-assisted Salesforce development, from intake to production. Tool-neutral core (markdown, YAML, Python); Claude Code adapter included.
 
 **What it gives you:** rules every AI tool follows (`AGENTS.md`, `guardrails/`), guidance on what good looks like (`best-practices/`), phase workflows with gates G0–G5 (`workflow/`), and `tools/pipeline.py`, which takes a request to a reviewed pull request with Claude agents: intake → agreed tests → dev loop with independent testers and a tech-lead review → PR. Humans approve every decision; machine checks stop unsafe actions.
