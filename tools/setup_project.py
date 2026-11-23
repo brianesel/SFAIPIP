@@ -7,10 +7,13 @@ usage:
   options: --no-login  --no-retrieve
 
 Safe to rerun: existing files are kept, filled values are offered as defaults, logged-in orgs are skipped.
-Only reads from orgs. Never sets approval or architecture decisions: those stay with the named humans (AI-01, PR-15).
+Only reads from orgs. Never sets approval. Records the branching and sandbox strategy only as the answer of the
+named human given in `decided_by` (ARCH-008/009, PR-15); "pending" leaves the decision open.
 Answers file keys: path, team_profile, devs, admins, approver, pm, tech_lead, source_alias, source_kind,
-source_url, production, write_allowed, standard_objects, base_branch, login, retrieve.
+source_url, production, branching_strategy, sandbox_strategy, decided_by, dev_aliases, integration_alias,
+uat_alias, staging_alias, write_allowed, standard_objects, base_branch, login, retrieve.
 """
+import datetime as dt
 import json
 import re
 import subprocess
@@ -25,7 +28,17 @@ import init_project  # noqa: E402
 
 LOGIN_URL = {"production": "https://login.salesforce.com", "sandbox": "https://test.salesforce.com"}
 CHOICES = {"path": ("existing-org", "new-org"), "team_profile": ("solo", "small", "multi-team"),
-           "source_kind": ("production", "sandbox")}
+           "source_kind": ("production", "sandbox"),
+           "branching_strategy": ("trunk", "environment-branches", "gitflow", "keep-existing", "pending"),
+           "sandbox_strategy": ("lean", "standard", "governed", "keep-existing", "pending")}
+# branching-environments.md: stages per sandbox strategy (type) and branch per stage per branching strategy
+STAGES = {"lean": [("uat", "partial-copy")],
+          "standard": [("integration", "developer-pro"), ("uat", "partial-copy")],
+          "governed": [("integration", "developer-pro"), ("uat", "partial-copy"), ("staging", "full")]}
+BRANCH = {"trunk": {"integration": "main", "uat": "main (release tag)", "staging": "main (release tag)", "production": "main (release tag)"},
+          "environment-branches": {"integration": "integration", "uat": "uat", "staging": "staging", "production": "main"},
+          "gitflow": {"integration": "develop", "uat": "release/*", "staging": "release/*", "production": "main"}}
+PR_TARGET = {"trunk": "main", "environment-branches": "integration", "gitflow": "develop"}
 
 
 def split(v):
@@ -71,16 +84,16 @@ def set_key(text, key, value, indent=None):
 def collect(cfg, answers):
     orgs, team, roles = cfg.get("orgs") or {}, cfg.get("team") or {}, cfg.get("roles") or {}
     a = {}
-    print("\n1/3 Project and team")
+    print("\n1/4 Project and team")
     a["path"] = ask("path", "Existing org or new org? (existing-org | new-org)", cfg.get("path") or "existing-org", answers)
     a["team_profile"] = ask("team_profile", "Team profile (solo | small | multi-team)", cfg.get("team_profile") or "small", answers)
     a["devs"] = ask("devs", "Number of developers", team.get("devs") or 1, answers)
     a["admins"] = ask("admins", "Number of admins", team.get("admins") or 0, answers)
-    print("\n2/3 People who decide (names; they approve, the AI never does)")
+    print("\n2/4 People who decide (names; they approve, the AI never does)")
     a["approver"] = ask("approver", "Customer approver (signs G1/G2)", roles.get("approver") or "", answers)
     a["pm"] = ask("pm", "Project manager", roles.get("pm") or "", answers)
     a["tech_lead"] = ask("tech_lead", "Tech lead", roles.get("tech_lead") or "", answers)
-    print("\n3/3 Orgs (aliases are local names for `sf`)")
+    print("\n3/4 Orgs (aliases are local names for `sf`)")
     src_default = (orgs.get("evaluation_readonly") or orgs.get("production") or [""])[0]
     a["source_alias"] = ask("source_alias", "Org to retrieve the baseline from (alias)", src_default, answers)
     kind_default = "production" if a["source_alias"] in (orgs.get("production") or []) or not a["source_alias"] else "sandbox"
@@ -88,18 +101,81 @@ def collect(cfg, answers):
     a["source_url"] = ask("source_url", "My Domain login URL (empty = standard login URL)", "", answers)
     prod_default = sorted(set(orgs.get("production") or []) | ({a["source_alias"]} if a["source_kind"] == "production" else set()))
     a["production"] = ask("production", "All production aliases (comma-separated)", prod_default, answers)
-    a["write_allowed"] = ask("write_allowed", "Sandbox aliases the AI may write to (comma-separated)", orgs.get("write_allowed") or [], answers)
+
+    arch = cfg.get("architecture") or {}
+    envs = {e.get("stage"): e for e in ((cfg.get("delivery") or {}).get("environments") or []) if isinstance(e, dict)}
+    print("\n4/4 Branching and sandboxes (your team's decision; options: best-practices/architecture/branching-environments.md)")
+    print("    Signals: DevOps Center → environment-branches · solo/small with CI → trunk · release trains → gitflow")
+    a["branching_strategy"] = ask("branching_strategy", "Branching strategy (trunk | environment-branches | gitflow | keep-existing | pending)",
+                                  arch.get("branching_strategy") or "pending", answers)
+    print("    Sandboxes: lean = dev → UAT → prod · standard = dev → integration → UAT → prod · governed = + staging (Full)")
+    a["sandbox_strategy"] = ask("sandbox_strategy", "Sandbox strategy (lean | standard | governed | keep-existing | pending)",
+                                arch.get("sandbox_strategy") or "pending", answers)
+    decided = {a["branching_strategy"], a["sandbox_strategy"]} - {"pending"}
+    a["decided_by"] = ask("decided_by", "Who made this decision (name)", a["tech_lead"], answers) if decided else ""
+    if decided and not a["decided_by"]:
+        sys.exit("decided_by: a named human records the decision (PR-15); answer 'pending' to decide later")
+    a["dev_aliases"] = ask("dev_aliases", "Developer sandbox aliases (comma-separated)",
+                           [e["alias"] for e in envs.values() if e.get("stage") == "dev" and e.get("alias")], answers)
+    for stage, _ in STAGES.get(a["sandbox_strategy"], []):
+        a[f"{stage}_alias"] = ask(f"{stage}_alias", f"{stage.upper()} sandbox alias", (envs.get(stage) or {}).get("alias") or "", answers)
+    ai_default = orgs.get("write_allowed") or [x for x in a["dev_aliases"] + [a.get("integration_alias", "")] if x]
+    a["write_allowed"] = ask("write_allowed", "Sandbox aliases the AI may write to (dev/integration only)", ai_default, answers)
     a["standard_objects"] = ask("standard_objects", "Standard objects to add to the baseline manifest besides the 15 listed (comma-separated)", [], answers)
-    a["base_branch"] = ask("base_branch", "Git base branch for PRs", (cfg.get("dev") or {}).get("base_branch") or "main", answers)
+    branch_default = PR_TARGET.get(a["branching_strategy"]) or (cfg.get("dev") or {}).get("base_branch") or "main"
+    a["base_branch"] = ask("base_branch", "Branch pull requests target", branch_default, answers)
     return a
+
+
+def environments(a):
+    """Promotion chain for delivery.environments, or None when the strategies are not both decided here."""
+    if a["sandbox_strategy"] not in STAGES or a["branching_strategy"] not in BRANCH:
+        return None
+    br = BRANCH[a["branching_strategy"]]
+    ai = set(a["write_allowed"])
+    chain = [{"stage": "dev", "alias": x, "type": "developer", "branch": "feature/<KEY>", "ai_writes": x in ai}
+             for x in a["dev_aliases"]]
+    for stage, kind in STAGES[a["sandbox_strategy"]]:
+        alias = a.get(f"{stage}_alias", "")
+        chain.append({"stage": stage, "alias": alias, "type": kind, "branch": br[stage], "ai_writes": alias in ai})
+    chain.append({"stage": "production", "alias": (a["production"] or [""])[0], "type": "production",
+                  "branch": br["production"], "ai_writes": False})
+    return chain
 
 
 def validate(a):
     clash = set(a["write_allowed"]) & (set(a["production"]) | ({a["source_alias"]} if a["path"] == "existing-org" else set()))
     if clash:
         sys.exit(f"HG-09/HG-08: {', '.join(sorted(clash))} cannot be write-allowed: production or under evaluation")
+    later = {a.get("uat_alias"), a.get("staging_alias")} - {"", None}
+    if set(a["write_allowed"]) & later:
+        sys.exit(f"HG-11: {', '.join(sorted(set(a['write_allowed']) & later))} is a UAT/staging sandbox; the AI writes only "
+                 "to dev and integration sandboxes (branching-environments.md rule 3)")
     if a["source_kind"] == "production" and a["source_alias"] and a["source_alias"] not in a["production"]:
         a["production"].append(a["source_alias"])
+
+
+def set_environments(text, chain):
+    """Replace the delivery.environments value (one line or a block of `- {...}` items) with the chain."""
+    items = "".join("\n    - {" + ", ".join(f"{k}: {json.dumps(v)}" for k, v in e.items()) + "}" for e in chain)
+    pat = re.compile(r"^(  environments:)[ ]*(\[\])?([ ]*#[^\n]*)?((?:\n    - [^\n]*)*)", re.M)
+    if not pat.search(text):
+        sys.exit("guardrails.project.yaml has no `delivery.environments:` line; re-copy it from the template")
+    def repl(m):
+        note = "   " + m.group(3).lstrip() if m.group(3) else ""
+        return f"{m.group(1)}{note}{items}" if chain else f"{m.group(1)} []{note}"
+    return pat.sub(repl, text, count=1)
+
+
+def record_decision(root, card, choice, who):
+    f = root / "docs/decisions" / card
+    if choice == "pending" or not f.exists():
+        return
+    t = f.read_text()
+    for field, val in (("Status", "decided"), ("Decided-by", who), ("Date", dt.date.today().isoformat()), ("Choice", choice)):
+        t = re.sub(rf"^{field}:[^\n<]*", f"{field}: {val}".ljust(25) if field != "Decided-by" else f"{field}: {val}", t, count=1, flags=re.M)
+    f.write_text(t)
+    print(f"recorded: {f.name} = {choice} (decided by {who})")
 
 
 def write_config(root, a):
@@ -116,21 +192,70 @@ def write_config(root, a):
     readonly = [a["source_alias"]] if a["path"] == "existing-org" and a["source_alias"] else []
     t = set_key(t, "evaluation_readonly", readonly, 2)
     t = set_key(t, "base_branch", a["base_branch"], 2)
+    t = set_key(t, "branching_strategy", a["branching_strategy"], 2)
+    t = set_key(t, "sandbox_strategy", a["sandbox_strategy"], 2)
+    chain = environments(a)
+    if chain is not None:
+        t = set_environments(t, chain)
     yaml.safe_load(t)
     f.write_text(t)
     print(f"updated: {f}")
+    record_decision(root, "ARCH-008-branching-strategy.md", a["branching_strategy"], a["decided_by"])
+    record_decision(root, "ARCH-009-sandbox-strategy.md", a["sandbox_strategy"], a["decided_by"])
 
 
 def ensure_dx_project(root):
     manifest = root / "manifest/baseline-package.xml"
     version = re.search(r"<version>([\d.]+)</version>", manifest.read_text()).group(1)
     f = root / "sfdx-project.json"
-    if f.exists():
-        return
-    f.write_text(json.dumps({"packageDirectories": [{"path": "force-app", "default": True}], "name": root.name,
-                             "namespace": "", "sfdcLoginUrl": LOGIN_URL["production"], "sourceApiVersion": version},
-                            indent=2) + "\n")
-    print(f"created: {f}")
+    if not f.exists():
+        f.write_text(json.dumps({"packageDirectories": [{"path": "force-app", "default": True}], "name": root.name,
+                                 "namespace": "", "sfdcLoginUrl": LOGIN_URL["production"], "sourceApiVersion": version},
+                                indent=2) + "\n")
+        print(f"created: {f}")
+    # sf refuses to run when a package directory listed in sfdx-project.json is missing (MissingPackageDirectoryError)
+    for d in dx_problems(root, create=True):
+        print(f"warning: {d}")
+    fi = root / ".forceignore"
+    if not fi.exists():
+        fi.write_text("# files the Salesforce CLI skips on deploy and retrieve\n**/jsconfig.json\n**/.eslintrc.json\n**/__tests__/**\n")
+        print(f"created: {fi}")
+
+
+def dx_problems(root, create=False):
+    """What stops `sf project retrieve start` from running in root; with create=True, add missing package folders."""
+    f = root / "sfdx-project.json"
+    if not f.exists():
+        return ["sfdx-project.json missing"]
+    try:
+        dirs = [d.get("path") for d in json.loads(f.read_text()).get("packageDirectories") or []]
+    except (ValueError, AttributeError) as e:
+        return [f"sfdx-project.json unreadable: {e}"]
+    if not dirs or not all(dirs):
+        return ["sfdx-project.json has no packageDirectories path"]
+    problems = []
+    for d in dirs:
+        p = root / d
+        if not p.is_dir():
+            if create:
+                (p / "main" / "default").mkdir(parents=True, exist_ok=True)
+                print(f"created: {p}/main/default")
+            else:
+                problems.append(f"package directory '{d}' from sfdx-project.json does not exist")
+    if not (root / "manifest/baseline-package.xml").exists():
+        problems.append("manifest/baseline-package.xml missing")
+    return problems
+
+
+def manual_retrieve_help(root, alias, problems):
+    print("\nRetrieve skipped — the project is not ready for the Salesforce CLI:")
+    for p in problems:
+        print(f"  - {p}")
+    print(f"Fix it, or retrieve by hand in {root}:\n"
+          f"  python3 {PKG}/tools/org_limits.py show {alias}\n"
+          f"  sf project retrieve start --manifest manifest/baseline-package.xml --target-org {alias}\n"
+          f"  python3 {PKG}/tools/system_map.py generate\n"
+          "then rerun setup with --no-retrieve to finish the checks.")
 
 
 def add_standard_objects(root, names):
@@ -179,8 +304,12 @@ def retrieve(root, alias):
     py = sys.executable
     run(root, py, str(PKG / "tools/org_limits.py"), "show", alias, "--project", str(root))
     run(root, py, str(PKG / "tools/org_limits.py"), "check", alias, "--project", str(root))
-    run(root, "sh", str(PKG / "tools/sf-safe"), "project", "retrieve", "start",
-        "--manifest", "manifest/baseline-package.xml", "--target-org", alias)
+    problems = dx_problems(root)
+    if problems:
+        return manual_retrieve_help(root, alias, problems)
+    if run(root, "sh", str(PKG / "tools/sf-safe"), "project", "retrieve", "start",
+           "--manifest", "manifest/baseline-package.xml", "--target-org", alias, check=False):
+        return manual_retrieve_help(root, alias, ["the retrieve command failed (see its error above)"])
     run(root, py, str(PKG / "tools/system_map.py"), "generate", "--project", str(root))
     print("Check the retrieve output above for types that refused `*` and list those by name.")
 

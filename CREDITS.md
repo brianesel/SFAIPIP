@@ -43,6 +43,8 @@ Official documentation by **Salesforce, Inc.** and its documentation, architect 
 | Given/When/Then | **Dan North** and **Chris Matts** (behaviour-driven development) [high] | requirements, tickets, test cases |
 | MoSCoW prioritisation | **Dai Clegg** [high] | `workflow/phases/04-requirements.md` |
 | Arrange-Act-Assert | **Bill Wake** [high] | `best-practices/testing.md` |
+| Trunk-based development | **Paul Hammant** (trunkbaseddevelopment.com) [high] | `best-practices/architecture/branching-environments.md` |
+| GitFlow branching model | **Vincent Driessen** (2010) [high] | `best-practices/architecture/branching-environments.md` |
 | Problem Details for HTTP APIs (RFC 7807, now RFC 9457) | **Mark Nottingham** and **Erik Wilde** (IETF) [high] | `best-practices/architecture/api-and-integration.md` |
 | EU AI Act, Article 50 | European Union; cited from the European Commission AI Act Service Desk | `best-practices/build/agentforce.md` |
 

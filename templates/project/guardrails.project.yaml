@@ -1,5 +1,5 @@
 # Project guardrails = pipeline baseline (sf-ai-dev-pipeline) + overrides. Do not copy baseline rules here; only deviations.
-baseline: sf-ai-dev-pipeline@0.16.0
+baseline: sf-ai-dev-pipeline@0.17.0
 path: ""                      # existing-org | new-org (set in intake)
 team_profile: ""              # solo | small | multi-team (set in intake)
 team:
@@ -36,6 +36,11 @@ architecture:                  # decision cards in docs/decisions/ARCH-*.md; val
   logging_framework: pending   # ARCH-004: keep-existing | A nebula-logger | B in-house | C platform-only
   delivery_model: pending      # ARCH-006: keep-existing | devops-center | cli-ci | unlocked-packages | commercial-tool
   archiving: pending           # ARCH-005: n/a | delete-with-retention | big-objects | external-archive | external-objects | mixed
+  branching_strategy: pending  # ARCH-008: keep-existing | trunk | environment-branches | gitflow
+  sandbox_strategy: pending    # ARCH-009: keep-existing | lean | standard | governed
+delivery:                      # concrete branches + environments from ARCH-008/009 (setup_project.py fills it)
+  release_branch: main         # production is deployed from this branch or its release tags (HG-09: by a human)
+  environments: []             # promotion order, e.g. - {stage: integration, alias: acme-int, type: developer-pro, branch: develop, ai_writes: true}
 project_rules: []              # project-specific guardrails, e.g.
 #  - {id: PRJ-01, rule: "New async Apex uses Queueable, not @future", enforce: analyzer, adr: ADR-003}
 #  - {id: PRJ-04, rule: "Service classes end with 'Service'", enforce: review}

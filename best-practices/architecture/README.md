@@ -18,3 +18,4 @@ When no option is clearly better for every project, the choice goes to a **decis
 | `configuration.md` | — (per-value table) | Custom Metadata for deployable config; hierarchy settings for per-user; labels; credentials |
 | `lwc-data-access.md` | — (order of preference) | base components → LDS / GraphQL → Apex; notify LDS after Apex writes |
 | `devops-packaging.md` | ARCH-006 delivery model | keep existing if it works; none / change sets → ask |
+| `branching-environments.md` | ARCH-008 branching strategy · ARCH-009 sandbox strategy | keep existing if it works; else asked in setup (`sfg-setup`), a named human chooses; stored in `delivery.environments` |

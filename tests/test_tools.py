@@ -404,13 +404,28 @@ class SetupProjectTest(unittest.TestCase):
         self.assertTrue(json.loads((self.root / "sfdx-project.json").read_text())["sourceApiVersion"])
         self.assertTrue((self.root / ".git/hooks/pre-commit").exists())
 
+    def test_dx_project_is_ready_for_the_cli(self):
+        (self.root).mkdir(exist_ok=True)
+        (self.root / "sfdx-project.json").write_text(json.dumps({"packageDirectories": [
+            {"path": "force-app", "default": True}, {"path": "unpackaged"}], "sourceApiVersion": "68.0"}))
+        r = self.setup(self.ANSWERS)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        for d in ("force-app/main/default", "unpackaged/main/default"):
+            self.assertTrue((self.root / d).is_dir(), f"{d}: sf fails with MissingPackageDirectoryError without it")
+        self.assertTrue((self.root / ".forceignore").exists())
+        sys.path.insert(0, str(PKG / "tools"))
+        import setup_project
+        self.assertEqual(setup_project.dx_problems(self.root), [])
+        shutil.rmtree(self.root / "unpackaged")
+        self.assertIn("package directory 'unpackaged' from sfdx-project.json does not exist", setup_project.dx_problems(self.root))
+
     def test_production_cannot_be_write_allowed(self):
         r = self.setup({**self.ANSWERS, "write_allowed": ["acme-prod"]})
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("HG-09/HG-08", r.stderr)
 
     def test_terminal_prompts(self):
-        typed = "new-org\nsolo\n1\n0\nJane\n\n\ndev1\nsandbox\n\n\ndev1\n\n\n"
+        typed = "new-org\nsolo\n1\n0\nJane\n\n\ndev1\nsandbox\n\n\ntrunk\nlean\nJane\ndev1\nuat1\n\n\n\n"
         r = subprocess.run([sys.executable, str(PKG / "tools/setup_project.py"), str(self.root), "--no-login",
                             "--no-retrieve"], input=typed, capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -418,3 +433,37 @@ class SetupProjectTest(unittest.TestCase):
         self.assertEqual(cfg["path"], "new-org")
         self.assertEqual(cfg["orgs"]["write_allowed"], ["dev1"])
         self.assertEqual(cfg["orgs"]["evaluation_readonly"], [], "new org: nothing under evaluation")
+        self.assertEqual(cfg["dev"]["base_branch"], "main", "trunk: PRs target main")
+        self.assertEqual([e["stage"] for e in cfg["delivery"]["environments"]], ["dev", "uat", "production"])
+
+    def test_branching_and_sandbox_strategy_recorded_with_chain_and_cards(self):
+        answers = {**self.ANSWERS, "write_allowed": None, "base_branch": None, "branching_strategy": "gitflow", "sandbox_strategy": "standard",
+                   "decided_by": "Lee", "dev_aliases": ["acme-dev1"], "integration_alias": "acme-int", "uat_alias": "acme-uat"}
+        answers = {k: v for k, v in answers.items() if v is not None}
+        for _ in range(2):
+            r = self.setup(answers)
+            self.assertEqual(r.returncode, 0, r.stderr)
+        cfg = yaml.safe_load((self.root / "guardrails.project.yaml").read_text())
+        self.assertEqual(cfg["architecture"]["branching_strategy"], "gitflow")
+        self.assertEqual(cfg["dev"]["base_branch"], "develop", "gitflow: PRs target develop")
+        self.assertEqual(cfg["orgs"]["write_allowed"], ["acme-dev1", "acme-int"], "default: dev + integration only")
+        chain = {e["stage"]: e for e in cfg["delivery"]["environments"]}
+        self.assertEqual(list(chain), ["dev", "integration", "uat", "production"])
+        self.assertEqual(chain["uat"]["branch"], "release/*")
+        self.assertFalse(chain["uat"]["ai_writes"])
+        self.assertEqual(chain["production"]["alias"], "acme-prod")
+        card = (self.root / "docs/decisions/ARCH-008-branching-strategy.md").read_text()
+        self.assertRegex(card, r"Status: decided")
+        self.assertRegex(card, r"Decided-by: Lee")
+        self.assertRegex(card, r"Choice: gitflow")
+        self.assertIn("Status: pending", (self.root / "docs/decisions/ARCH-007-structure-level.md").read_text())
+
+    def test_uat_cannot_be_write_allowed_and_decision_needs_a_name(self):
+        base = {**self.ANSWERS, "branching_strategy": "trunk", "sandbox_strategy": "lean", "decided_by": "Lee",
+                "dev_aliases": ["acme-dev1"], "uat_alias": "acme-uat"}
+        r = self.setup({**base, "write_allowed": ["acme-dev1", "acme-uat"]})
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("UAT/staging", r.stderr)
+        r = self.setup({**base, "tech_lead": "", "decided_by": ""})
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("PR-15", r.stderr)

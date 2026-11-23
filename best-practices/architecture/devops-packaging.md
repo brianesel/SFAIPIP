@@ -6,7 +6,7 @@ Confidence: product facts [verified from Salesforce docs and vendor sources, 202
 ## Non-negotiables (any model)
 1. Version control is the source of truth; nothing is changed directly in production except documented emergency fixes, which are back-ported the same day.
 2. Every change = ticket + branch + pull request + CI gates (ticket lint, DoD, Code Analyzer, validate deploy) — see `../../workflow/phases/06-dev.md` and `07-delivery.md`.
-3. Environments: developer sandboxes or scratch orgs → integration/QA sandbox → UAT/staging (full or partial copy) → production. Only verified sandboxes are write-allowed for AI (HG-11).
+3. Environments: developer sandboxes or scratch orgs → integration/QA sandbox → UAT/staging (full or partial copy) → production. Only verified sandboxes are write-allowed for AI (HG-11). The project's branching and sandbox chain: ARCH-008/009 in `branching-environments.md`.
 4. Production deploys only from a validated job (validate, then quick deploy), run by a human (HG-09).
 5. Destructive changes are explicit, reviewed, and in the rollback plan (PR-13).
 6. Manual post-deploy steps (activation, permission assignment, data) are listed in the release notes, scripted where possible.

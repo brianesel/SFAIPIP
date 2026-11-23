@@ -1,4 +1,4 @@
-# SF AI development pipeline — v0.16
+# SF AI development pipeline — v0.17
 
 Guardrails, best practices, workflows and an automated agent pipeline for AI-assisted Salesforce development, from intake to production. Tool-neutral core (markdown, YAML, Python); Claude Code adapter included.
 
@@ -8,7 +8,7 @@ Guardrails, best practices, workflows and an automated agent pipeline for AI-ass
 | Folder | What |
 |---|---|
 | `guardrails/` | `registry.yaml` (every rule with an ID) · `README.md` (generated index) · `analyzer-map.yaml` (guardrail → verified Code Analyzer rules) · `rubric/` (scoring, per structure level) · `schemas/` (ticket, test case, review, impact, system map) |
-| `best-practices/` | Well-Architected, clean Apex (simplicity first, comment rule), testing, patterns + migration, requirements + tickets, AI-assisted development · **`build/`**: one guide per metadata area (Flows, Apex, access, objects & fields, validation rules & formulas, Lightning pages, LWC, reports, integration metadata, Agentforce) · **`architecture/`**: trigger framework, API & integration, async, error handling + logging, data model / LDV, security + sharing, configuration, LWC data access, DevOps + packaging, structure level, with decision cards ARCH-001…007 |
+| `best-practices/` | Well-Architected, clean Apex (simplicity first, comment rule), testing, patterns + migration, requirements + tickets, AI-assisted development · **`build/`**: one guide per metadata area (Flows, Apex, access, objects & fields, validation rules & formulas, Lightning pages, LWC, reports, integration metadata, Agentforce) · **`architecture/`**: trigger framework, API & integration, async, error handling + logging, data model / LDV, security + sharing, configuration, LWC data access, DevOps + packaging, branching + environments, structure level, with decision cards ARCH-001…009 |
 | `workflow/` | `daily-guide.md` · `project-map.md` · `phases/00–07` (each step cites its guardrails) · `processes/`: change control, rituals, tracker setup, analyzer rules, **automated pipeline**, **system map** |
 | `tools/` | see [Tools](#tools) |
 | `agents/` | pipeline roles: intake, test designer, developer, functional tester, impact tester, UAT tester, tech-lead reviewer |
@@ -60,7 +60,7 @@ Other AI tools: skip the plugin, point the tool at `AGENTS.md`, and run `sf` thr
 ## Start a project
 Once per project. Two ways, same result; both are safe to rerun.
 
-**Guided** — asks the project facts (path, team, approver/PM/tech lead, orgs), fills `guardrails.project.yaml`, creates `sfdx-project.json` if missing, logs in to the orgs in your browser, retrieves the baseline metadata read-only and runs the checks. It never sets architecture decisions or approval; those stay with the named humans.
+**Guided** — asks the project facts (path, team, approver/PM/tech lead, orgs) and your team's branching and sandbox strategy (ARCH-008/009), fills `guardrails.project.yaml` (incl. the branch and sandbox chain in `delivery.environments`) and records the choice on the decision cards, makes the folder a working Salesforce DX project (`sfdx-project.json`, its package folders such as `force-app/main/default`, `.forceignore`), logs in to the orgs in your browser, retrieves the baseline metadata read-only (if the project is not ready or the retrieve fails, it stops and prints the manual commands) and runs the checks. It records a strategy only as the answer of the person you name as decider (`pending` leaves it open) and never sets the other architecture decisions or approval.
 - **Claude Code, started in the project folder:** run `/sfg-setup` or say "set up the project". Questions come in rounds of at most 4; you run the browser login yourself when asked.
 - **Terminal, any folder:** `git init` the project first if it is new, then answer the prompts (Enter keeps the default):
   ```bash
@@ -142,7 +142,7 @@ Optional: `ci/pipeline-run.yml` runs the same pipeline from a GitHub issue (labe
 | 00 Intake | ✅ | `status.py` (G0) |
 | 01 Evaluation | ✅ | `score.py` (+ project config, structure level, waivers, history) · analyzer scripts ⏳ |
 | 02 Discovery loop | ✅ | `gate_check.py` (G2) |
-| 03 Alignment | ✅ | `status.py` (G1, incl. decision cards ARCH-001…007) |
+| 03 Alignment | ✅ | `status.py` (G1, incl. decision cards ARCH-001…009) |
 | 04 Requirements | ✅ | `gate_check.py` (G2) |
 | 05 Refinement | ✅ | `ticket_lint.py` (G3) |
 | 06 Dev + test loop | ✅ | `dev_cycle.py` (G4), hooks · automated: `pipeline.py` |
