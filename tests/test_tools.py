@@ -347,3 +347,24 @@ class BaselineManifestTest(Base):
         self.assertRegex(pkg.findtext("m:version", namespaces=ns), r"^\d+\.0$")
         kind, _ = classify(["project", "retrieve", "start", "--manifest", str(f), "--target-org", "eval"])
         self.assertEqual(kind, "read")
+
+
+class McpGuardTest(OrgLimitsGuardTest):
+    def hook(self, tool, tin):
+        env = {**__import__("os").environ, "SFG_ORG_FACTS": str(self.facts), "SFG_ORG_LIMITS": str(self.limits)}
+        payload = json.dumps({"tool_name": tool, "tool_input": tin, "cwd": str(self.root)})
+        return subprocess.run([sys.executable, str(PKG / "tools/org_guard.py"), "--hook"], input=payload,
+                              capture_output=True, text=True, env=env, cwd=self.root)
+
+    def test_only_salesforce_mcp_servers_are_guarded(self):
+        self.set(100)
+        for tool in ("mcp__ccd_turn__update_plan", "mcp__slack__send_message", "mcp__atlassian__createJiraIssue"):
+            self.assertEqual(self.hook(tool, {"org": "prod"}).returncode, 0, tool)
+        self.assertEqual(self.hook("mcp__salesforce__deploy_metadata", {"usernameOrAlias": "prod"}).returncode, 2)
+        self.assertEqual(self.hook("mcp__salesforce__deploy_metadata", {"usernameOrAlias": "dev"}).returncode, 0)
+        self.assertEqual(self.hook("mcp__crm__deploy_metadata", {"usernameOrAlias": "prod"}).returncode, 0)
+        cfg = yaml.safe_load(self.cfg_p.read_text())
+        cfg["orgs"]["mcp_servers"] = ["crm"]
+        self.cfg_p.write_text(yaml.safe_dump(cfg))
+        self.assertEqual(self.hook("mcp__crm__deploy_metadata", {"usernameOrAlias": "prod"}).returncode, 2,
+                         "a Salesforce server listed in orgs.mcp_servers is guarded")

@@ -19,6 +19,7 @@ orgs:                          # prod guard + sandbox lock (tools/org_guard.py)
   production: []               # production aliases: AI writes always blocked (humans deploy in 07-delivery)
   evaluation_readonly: []      # orgs under evaluation: read-only (HG-08)
   scratch_allowed: []          # scratch org aliases allowed when TrialExpirationDate is set
+  mcp_servers: []              # Salesforce MCP servers whose name lacks "salesforce"/"sfdx"/"sf"; only these MCP servers are guarded
   limits:                      # HG-12 limit reserve (tools/org_limits.py, enforced by org_guard.py + pipeline.py)
     enabled: true
     watch: [DailyApiRequests, DailyAsyncApexExecutions]   # names from `sf org list limits`

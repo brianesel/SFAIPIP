@@ -37,7 +37,7 @@ One trigger per object with handler/TAF delegation · sharing keyword on every c
 
 ## Aligned from this review
 - Bulk tests now use **251+ records** (crosses the 200-record trigger chunk), like `platform-apex-test-generate`.
-- `org_guard.py` now also guards **MCP tools** (e.g. DX MCP `deploy_metadata`, `run_apex_test`, `assign_permission_set`) and uses `sf org list` as a fallback signal.
+- `org_guard.py` now also guards **MCP tools from Salesforce servers** (e.g. DX MCP `deploy_metadata`, `run_apex_test`, `assign_permission_set`) and uses `sf org list` as a fallback signal. A server counts as Salesforce when its name contains `salesforce`, `sfdx` or `sf`, or when it is listed in `orgs.mcp_servers`; tools from other servers (Slack, Jira, the AI app's own tools) are not guarded.
 
 ## Salesforce DX MCP server — safe configuration
 - `--orgs` lists **only** write-allowed sandbox aliases (never `ALLOW_ALL_ORGS`, never the production alias). Salesforce itself recommends not giving the server all authorised orgs.

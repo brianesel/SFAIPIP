@@ -20,20 +20,30 @@ Guardrails, best practices, workflows and an automated agent pipeline for AI-ass
 | `AGENTS.md` | rules for any AI tool |
 | `CREDITS.md` | the books, frameworks, docs and people this package builds on |
 
-## Install (Claude Code)
-Once per machine. The Python tools run from a local copy of this repo, so clone it first.
+## Where commands run
+Two folders, used in every example below:
+| Folder | What it is | Example |
+|---|---|---|
+| **package** | your clone of this repo (tools, guardrails, guides) | `~/sf-ai-dev-pipeline` |
+| **project** | the Salesforce project's own git repo, where `sfdx-project.json` and `force-app/` live | `~/projects/acme-sf` |
 
-1. Clone the package:
+Commands marked **Claude Code** are typed into a Claude Code session. Commands marked **terminal** run in a shell; the tools read the project from the current folder (or `--project <dir>`), so `cd` into the project first unless the step says otherwise.
+
+## Install (Claude Code)
+Once per machine.
+
+1. **Claude Code, any folder** — add this repo as a plugin marketplace and install the plugin (format `plugin@marketplace`; both are named `sf-ai-dev-pipeline`):
+   ```
+   /plugin marketplace add brianesel/SFAIPIP
+   /plugin install sf-ai-dev-pipeline@sf-ai-dev-pipeline
+   ```
+   Claude Code keeps its own copy; skills and hooks run the tools from there. That is enough if you only work inside Claude Code.
+2. **Terminal, any folder** — clone the package if you run the tools from a terminal (the commands below) or want the project's pre-commit build gate. `init_project.py` writes the package path into the project's `CLAUDE.md` and pre-commit hook, so run it from a clone that stays put, not from Claude Code's plugin copy:
    ```bash
    git clone https://github.com/brianesel/SFAIPIP.git ~/sf-ai-dev-pipeline
    ```
-2. In Claude Code, register the clone as a plugin marketplace and install the plugin (format `plugin@marketplace`; both are named `sf-ai-dev-pipeline`):
-   ```
-   /plugin marketplace add ~/sf-ai-dev-pipeline
-   /plugin install sf-ai-dev-pipeline@sf-ai-dev-pipeline
-   ```
-   Installing from GitHub also works (`/plugin marketplace add brianesel/SFAIPIP`), but you still need the clone for the tools.
-3. Check the machine (Python, PyYAML, Salesforce CLI, Code Analyzer, …); every ❌ prints its fix:
+   With a clone you can install the plugin from it instead (`/plugin marketplace add ~/sf-ai-dev-pipeline`), so plugin and tools are the same version.
+3. **Terminal, any folder** — check the machine (Python, PyYAML, Salesforce CLI, Code Analyzer, …); every ❌ prints its fix:
    ```bash
    python3 ~/sf-ai-dev-pipeline/tools/doctor.py
    ```
@@ -45,31 +55,42 @@ What the plugin adds to every Claude Code session:
 | Hook on shell and MCP calls | `org_guard.py`: blocks writes to production, orgs under evaluation and non-allowed orgs, and any org command below the limit reserve |
 | Hook on file writes | `gate_check.py`: blocks writing `force-app/` before design sign-off or before the ticket's agreed test set is valid |
 
-Other AI tools: skip the plugin, point the tool at `AGENTS.md`, and run `sf` through `tools/sf-safe`.
-
-After setting up a project (next section), check it too: `python3 ~/sf-ai-dev-pipeline/tools/doctor.py --project <project-dir>`.
+Other AI tools: skip the plugin, point the tool at `AGENTS.md`, and run `sf` through `~/sf-ai-dev-pipeline/tools/sf-safe`.
 
 ## Start a project
-1. Read `workflow/daily-guide.md` (setup + routine).
-2. `python3 tools/init_project.py <project-dir>`
-3. Fill `guardrails.project.yaml`: team profile, roles, orgs (`production`, `write_allowed` sandboxes), `orgs.limits`, architecture decisions incl. `structure_level` (ARCH-007), UAT personas.
-4. Retrieve the baseline metadata (read-only) and build the automation map. Run inside a Salesforce DX project (`sfdx-project.json`); add the standard objects the org customises to `manifest/baseline-package.xml` first.
+Once per project.
+
+1. Read `workflow/daily-guide.md` in the package (setup + routine).
+2. **Terminal, any folder** — copy the project files into the project (creates the folder if needed; never overwrites). Run `git init` in the project first if it is new, so the pre-commit gate is installed:
    ```bash
-   python3 tools/org_limits.py show <alias>
-   sf project retrieve start --manifest manifest/baseline-package.xml --target-org <alias>
-   python3 tools/system_map.py generate
+   python3 ~/sf-ai-dev-pipeline/tools/init_project.py ~/projects/acme-sf
    ```
-   Check the retrieve output for types that refused `*` and list those by name (`sf org list metadata --metadata-type <Type> --target-org <alias>`). Use `tools/sf-safe` instead of `sf` if your AI tool has no org-guard hook.
-5. In Claude: "where are we?" → `sfg-workflow` routes to the right phase.
+3. **Editor, project folder** — fill `guardrails.project.yaml`: team profile, roles, orgs (`production`, `write_allowed` sandboxes), `orgs.limits`, architecture decisions incl. `structure_level` (ARCH-007), UAT personas.
+4. **Terminal, project folder** — check the project setup:
+   ```bash
+   cd ~/projects/acme-sf
+   python3 ~/sf-ai-dev-pipeline/tools/doctor.py --project .
+   ```
+5. **Terminal, project folder** — retrieve the baseline metadata (read-only) and build the automation map. The project must be a Salesforce DX project (`sfdx-project.json`; create one with `sf project generate` if it has none). First add the standard objects the org customises to `manifest/baseline-package.xml`.
+   ```bash
+   cd ~/projects/acme-sf
+   python3 ~/sf-ai-dev-pipeline/tools/org_limits.py show <alias>
+   sf project retrieve start --manifest manifest/baseline-package.xml --target-org <alias>
+   python3 ~/sf-ai-dev-pipeline/tools/system_map.py generate
+   ```
+   Check the retrieve output for types that refused `*` and list those by name (`sf org list metadata --metadata-type <Type> --target-org <alias>`). Use `~/sf-ai-dev-pipeline/tools/sf-safe` instead of `sf` if your AI tool has no org-guard hook.
+6. **Claude Code, started in the project folder** (`cd ~/projects/acme-sf && claude`) — ask "where are we?"; `sfg-workflow` routes to the right phase.
 
 ## Automated pipeline
 Runs on your machine; GitHub only receives the pushed branch and the PR. Design: `workflow/processes/automated-pipeline.md`.
 
+**Terminal, project folder** (or ask Claude Code, started in the project folder, to "run the pipeline for STORY-12"):
 ```bash
-python3 tools/pipeline.py run STORY-12 --request "Sales rep needs an invoice from a closed-won opportunity"
+cd ~/projects/acme-sf
+python3 ~/sf-ai-dev-pipeline/tools/pipeline.py run STORY-12 --request "Sales rep needs an invoice from a closed-won opportunity"
 ```
 
-Run it again after each human step; `python3 tools/pipeline.py status STORY-12` shows where it stands. Exit codes: `0` PR open · `3` waiting for a human · `1` stopped (see `docs/tests/<KEY>/escalation.md`).
+Run it again after each human step; `python3 ~/sf-ai-dev-pipeline/tools/pipeline.py status STORY-12` (same folder) shows where it stands. Exit codes: `0` PR open · `3` waiting for a human · `1` stopped (see `docs/tests/<KEY>/escalation.md` in the project).
 
 | Stage | What happens | Human stop |
 |---|---|---|
@@ -120,6 +141,7 @@ Optional: `ci/pipeline-run.yml` runs the same pipeline from a GitHub issue (labe
 **Not yet proven on a real org:** the pipeline is tested end to end with a fake agent (`tests/`); the agent prompts still need tuning on the first real tickets. The Apex code graph (apex-ls) is audited but not integrated; the system map uses a text-reference scan for Apex.
 
 ## Keep it consistent
+For changes to this package itself; **terminal, package folder** (`cd ~/sf-ai-dev-pipeline`).
 - After editing workflows or guardrails: `python3 tools/check_docs.py --write-index` — fails if a step cites no guardrail or a guardrail is missing from a phase it applies to.
 - Tests: `python3 -m unittest discover tests`
 

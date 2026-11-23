@@ -196,9 +196,21 @@ def org_list_record(alias):
 # ---------- MCP tools (e.g. Salesforce DX MCP server) ----------
 MCP_WRITE = re.compile(r"(deploy|delete|create|assign|update|insert|upsert|run_apex|run_agent|execute|promote|publish|install|import)", re.I)
 MCP_TARGET_KEYS = ("usernameOrAlias", "targetOrg", "target_org", "target-org", "org", "alias", "username")
+SF_MCP_SERVER = re.compile(r"salesforce|sfdx|(^|[_-])sf([_-]|$)", re.I)
+
+
+def is_salesforce_mcp(tool_name, root):
+    """Only Salesforce MCP servers reach an org; other servers (Slack, Jira, the app's own tools) are not guarded.
+    A Salesforce server with another name is listed in guardrails.project.yaml → orgs.mcp_servers."""
+    parts = tool_name.split("__")
+    server = parts[1] if len(parts) > 2 else ""
+    extra = [str(s) for s in (project_policy(root).get("mcp_servers") or [])]
+    return bool(SF_MCP_SERVER.search(server)) or server in extra
 
 
 def decide_mcp(tool_name, tool_input, root):
+    if not is_salesforce_mcp(tool_name, root):
+        return True, [], []
     short = tool_name.split("__")[-1]
     explicit = next((str(tool_input[k]) for k in MCP_TARGET_KEYS if tool_input.get(k)), None)
     if explicit:
