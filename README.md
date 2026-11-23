@@ -18,6 +18,7 @@ Guardrails, best practices, workflows and an automated agent pipeline for AI-ass
 | `tests/` | end-to-end pipeline tests with a fake agent, plus tool tests |
 | `calibration/` | tuning scores on known orgs |
 | `AGENTS.md` | rules for any AI tool |
+| `CREDITS.md` | the books, frameworks, docs and people this package builds on |
 
 ## Install (Claude Code)
 ```
@@ -98,3 +99,6 @@ Optional: `ci/pipeline-run.yml` runs the same pipeline from a GitHub issue (labe
 - Salesforce CLI + Code Analyzer v5 (Java 11+, Node 18+)
 - Pipeline: Claude Code CLI (`claude`), git with a remote, GitHub CLI (`gh`, signed in) for the PR
 - UAT: Node + Playwright, persona users in the sandbox (`sf org login web --alias <persona-alias>`)
+
+## Credits
+Built on the work of Pablo Gonzalez (*Clean Apex Code*), Robert C. Martin (*Clean Code*), Martin Fowler, Kevin O'Hara, Mitch Spano, Andrew Fawcett and the Apex Enterprise Patterns community, Jonathan Gillespie, Salesforce's documentation and architect teams, and others. Full list: [`CREDITS.md`](CREDITS.md).
