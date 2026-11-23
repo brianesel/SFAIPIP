@@ -368,3 +368,53 @@ class McpGuardTest(OrgLimitsGuardTest):
         self.cfg_p.write_text(yaml.safe_dump(cfg))
         self.assertEqual(self.hook("mcp__crm__deploy_metadata", {"usernameOrAlias": "prod"}).returncode, 2,
                          "a Salesforce server listed in orgs.mcp_servers is guarded")
+
+
+class SetupProjectTest(unittest.TestCase):
+    ANSWERS = {"path": "existing-org", "team_profile": "small", "devs": 2, "admins": 1, "approver": "Jane",
+               "pm": "Pat", "tech_lead": "Lee", "source_alias": "acme-prod", "source_kind": "production",
+               "production": [], "write_allowed": ["acme-dev"], "standard_objects": ["Quote", "Account"],
+               "base_branch": "main"}
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.root = self.tmp / "proj"
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+
+    def setup(self, answers, *extra):
+        f = self.tmp / "a.yaml"
+        f.write_text(yaml.safe_dump(answers))
+        return sh(PKG, sys.executable, "tools/setup_project.py", str(self.root), "--answers", str(f),
+                  "--no-login", "--no-retrieve", *extra)
+
+    def test_fills_config_manifest_and_dx_project_and_reruns_cleanly(self):
+        for _ in range(2):
+            r = self.setup(self.ANSWERS)
+            self.assertIn("Still for humans", r.stdout, r.stderr)
+        cfg = yaml.safe_load((self.root / "guardrails.project.yaml").read_text())
+        self.assertEqual(cfg["roles"]["approver"], "Jane")
+        self.assertEqual(cfg["orgs"]["production"], ["acme-prod"], "production source is listed as production")
+        self.assertEqual(cfg["orgs"]["evaluation_readonly"], ["acme-prod"], "existing org is read-only (HG-08)")
+        self.assertEqual(cfg["orgs"]["write_allowed"], ["acme-dev"])
+        self.assertEqual(cfg["approval"]["status"], "DRAFT", "setup never approves (AI-01)")
+        self.assertEqual(cfg["architecture"]["structure_level"], "pending", "decisions stay with humans")
+        manifest = (self.root / "manifest/baseline-package.xml").read_text()
+        self.assertEqual(manifest.count("<members>Quote</members>"), 1)
+        self.assertEqual(manifest.count("<members>Account</members>"), 1)
+        self.assertTrue(json.loads((self.root / "sfdx-project.json").read_text())["sourceApiVersion"])
+        self.assertTrue((self.root / ".git/hooks/pre-commit").exists())
+
+    def test_production_cannot_be_write_allowed(self):
+        r = self.setup({**self.ANSWERS, "write_allowed": ["acme-prod"]})
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("HG-09/HG-08", r.stderr)
+
+    def test_terminal_prompts(self):
+        typed = "new-org\nsolo\n1\n0\nJane\n\n\ndev1\nsandbox\n\n\ndev1\n\n\n"
+        r = subprocess.run([sys.executable, str(PKG / "tools/setup_project.py"), str(self.root), "--no-login",
+                            "--no-retrieve"], input=typed, capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        cfg = yaml.safe_load((self.root / "guardrails.project.yaml").read_text())
+        self.assertEqual(cfg["path"], "new-org")
+        self.assertEqual(cfg["orgs"]["write_allowed"], ["dev1"])
+        self.assertEqual(cfg["orgs"]["evaluation_readonly"], [], "new org: nothing under evaluation")

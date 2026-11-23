@@ -51,14 +51,24 @@ Once per machine.
 What the plugin adds to every Claude Code session:
 | Part | What it does |
 |---|---|
-| Skills `sfg-workflow`, `sfg-assess`, `sfg-discover`, `sfg-refine`, `sfg-testgen`, `sfg-dev`, `sfg-change`, `sfg-pipeline` | phase workflows; `sfg-workflow` finds the current phase and routes to the right one |
+| Skills `sfg-setup`, `sfg-workflow`, `sfg-assess`, `sfg-discover`, `sfg-refine`, `sfg-testgen`, `sfg-dev`, `sfg-change`, `sfg-pipeline` | guided project setup; phase workflows; `sfg-workflow` finds the current phase and routes to the right one |
 | Hook on shell and MCP calls | `org_guard.py`: blocks writes to production, orgs under evaluation and non-allowed orgs, and any org command below the limit reserve |
 | Hook on file writes | `gate_check.py`: blocks writing `force-app/` before design sign-off or before the ticket's agreed test set is valid |
 
 Other AI tools: skip the plugin, point the tool at `AGENTS.md`, and run `sf` through `~/sf-ai-dev-pipeline/tools/sf-safe`.
 
 ## Start a project
-Once per project.
+Once per project. Two ways, same result; both are safe to rerun.
+
+**Guided** — asks the project facts (path, team, approver/PM/tech lead, orgs), fills `guardrails.project.yaml`, creates `sfdx-project.json` if missing, logs in to the orgs in your browser, retrieves the baseline metadata read-only and runs the checks. It never sets architecture decisions or approval; those stay with the named humans.
+- **Claude Code, started in the project folder:** run `/sfg-setup` or say "set up the project". Questions come in rounds of at most 4; you run the browser login yourself when asked.
+- **Terminal, any folder:** `git init` the project first if it is new, then answer the prompts (Enter keeps the default):
+  ```bash
+  python3 ~/sf-ai-dev-pipeline/tools/setup_project.py ~/projects/acme-sf
+  ```
+  `--no-login` and `--no-retrieve` skip those steps.
+
+**Manual** — the same steps one by one:
 
 1. Read `workflow/daily-guide.md` in the package (setup + routine).
 2. **Terminal, any folder** — copy the project files into the project (creates the folder if needed; never overwrites). Run `git init` in the project first if it is new, so the pre-commit gate is installed:
@@ -116,7 +126,7 @@ Optional: `ci/pipeline-run.yml` runs the same pipeline from a GitHub issue (labe
 ## Tools
 | Tool | Use |
 |---|---|
-| `init_project.py`, `doctor.py`, `status.py` | start a project, check setup, gate status G0–G1 |
+| `setup_project.py`, `init_project.py`, `doctor.py`, `status.py` | guided setup (facts, login, baseline retrieve), copy project files only, check setup, gate status G0–G1 |
 | `gate_check.py`, `ticket_lint.py`, `dev_cycle.py` | build gate (G2), ticket Ready (G3), dev loop and Done (G4) |
 | `org_guard.py`, `sf-safe`, `org_limits.py` | prod guard, sandbox lock, limit reserve; `org_limits.py show <alias>` |
 | `pipeline.py`, `context_pack.py` | orchestrator; what is known about a ticket's area |

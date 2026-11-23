@@ -30,7 +30,8 @@ See `processes/rituals.md`. Monday: `tools/weekly_report.py` drives refinement a
 | Command | When |
 |---|---|
 | `tools/doctor.py [--project <dir>]` | setup check, any time something seems off |
-| `tools/init_project.py <dir>` | new project |
+| `tools/setup_project.py <dir>` (or skill `sfg-setup`) | new project, guided: facts, org login, baseline retrieve |
+| `tools/init_project.py <dir>` | new project, copy files only |
 | `tools/status.py` | anytime: gates G0–G2 |
 | `tools/score.py --results … --config guardrails.project.yaml --out docs/wiki/_data` | evaluation, re-assess |
 | `tools/ticket_lint.py [--org <alias>]` | writing tickets, before refinement (G3) |

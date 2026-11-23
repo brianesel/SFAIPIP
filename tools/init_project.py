@@ -22,10 +22,7 @@ def copy_tree(src: Path, dst: Path):
         print(f"created: {t}")
 
 
-def main():
-    if len(sys.argv) != 2:
-        sys.exit("usage: init_project.py /path/to/project")
-    target = Path(sys.argv[1]).resolve()
+def init(target: Path):
     target.mkdir(parents=True, exist_ok=True)
     copy_tree(PKG / "templates" / "project", target)
     copy_tree(PKG / "best-practices" / "architecture" / "decisions", target / "docs" / "decisions")
@@ -46,6 +43,12 @@ def main():
             print(f"created: {h}")
     else:
         print("no .git yet: run `git init`, then rerun to install the pre-commit gate")
+
+
+def main():
+    if len(sys.argv) != 2:
+        sys.exit("usage: init_project.py /path/to/project")
+    init(Path(sys.argv[1]).resolve())
 
 
 if __name__ == "__main__":
