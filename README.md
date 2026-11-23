@@ -21,11 +21,33 @@ Guardrails, best practices, workflows and an automated agent pipeline for AI-ass
 | `CREDITS.md` | the books, frameworks, docs and people this package builds on |
 
 ## Install (Claude Code)
-```
-/plugin marketplace add <path-or-git-repo-of-this-package>
-/plugin install sf-ai-dev-pipeline@sf-ai-dev-pipeline
-```
-Check a project: `python3 tools/doctor.py --project <project-dir>`
+Once per machine. The Python tools run from a local copy of this repo, so clone it first.
+
+1. Clone the package:
+   ```bash
+   git clone https://github.com/brianesel/SFAIPIP.git ~/sf-ai-dev-pipeline
+   ```
+2. In Claude Code, register the clone as a plugin marketplace and install the plugin (format `plugin@marketplace`; both are named `sf-ai-dev-pipeline`):
+   ```
+   /plugin marketplace add ~/sf-ai-dev-pipeline
+   /plugin install sf-ai-dev-pipeline@sf-ai-dev-pipeline
+   ```
+   Installing from GitHub also works (`/plugin marketplace add brianesel/SFAIPIP`), but you still need the clone for the tools.
+3. Check the machine (Python, PyYAML, Salesforce CLI, Code Analyzer, …); every ❌ prints its fix:
+   ```bash
+   python3 ~/sf-ai-dev-pipeline/tools/doctor.py
+   ```
+
+What the plugin adds to every Claude Code session:
+| Part | What it does |
+|---|---|
+| Skills `sfg-workflow`, `sfg-assess`, `sfg-discover`, `sfg-refine`, `sfg-testgen`, `sfg-dev`, `sfg-change`, `sfg-pipeline` | phase workflows; `sfg-workflow` finds the current phase and routes to the right one |
+| Hook on shell and MCP calls | `org_guard.py`: blocks writes to production, orgs under evaluation and non-allowed orgs, and any org command below the limit reserve |
+| Hook on file writes | `gate_check.py`: blocks writing `force-app/` before design sign-off or before the ticket's agreed test set is valid |
+
+Other AI tools: skip the plugin, point the tool at `AGENTS.md`, and run `sf` through `tools/sf-safe`.
+
+After setting up a project (next section), check it too: `python3 ~/sf-ai-dev-pipeline/tools/doctor.py --project <project-dir>`.
 
 ## Start a project
 1. Read `workflow/daily-guide.md` (setup + routine).
