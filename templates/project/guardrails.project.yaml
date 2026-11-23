@@ -1,5 +1,5 @@
 # Project guardrails = pipeline baseline (sf-ai-dev-pipeline) + overrides. Do not copy baseline rules here; only deviations.
-baseline: sf-ai-dev-pipeline@0.15.0
+baseline: sf-ai-dev-pipeline@0.16.0
 path: ""                      # existing-org | new-org (set in intake)
 team_profile: ""              # solo | small | multi-team (set in intake)
 team:

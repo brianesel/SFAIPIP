@@ -1,4 +1,4 @@
-# SF AI development pipeline — v0.15
+# SF AI development pipeline — v0.16
 
 Guardrails, best practices, workflows and an automated agent pipeline for AI-assisted Salesforce development, from intake to production. Tool-neutral core (markdown, YAML, Python); Claude Code adapter included.
 
