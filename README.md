@@ -203,3 +203,6 @@ For changes to this package itself; **terminal, package folder** (`cd ~/sf-ai-de
 
 ## Credits
 Built on the work of Pablo Gonzalez (*Clean Apex Code*), Robert C. Martin (*Clean Code*), Martin Fowler, Kevin O'Hara, Mitch Spano, Andrew Fawcett and the Apex Enterprise Patterns community, Jonathan Gillespie, Salesforce's documentation and architect teams, and others. Full list: [`CREDITS.md`](CREDITS.md).
+
+## Licence
+MIT — see `LICENSE`. Contributions welcome as pull requests; every change keeps `python3 tools/check_docs.py` and `python3 -m unittest discover tests` green.
