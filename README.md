@@ -31,7 +31,14 @@ Check a project: `python3 tools/doctor.py --project <project-dir>`
 1. Read `workflow/daily-guide.md` (setup + routine).
 2. `python3 tools/init_project.py <project-dir>`
 3. Fill `guardrails.project.yaml`: team profile, roles, orgs (`production`, `write_allowed` sandboxes), `orgs.limits`, architecture decisions incl. `structure_level` (ARCH-007), UAT personas.
-4. In Claude: "where are we?" → `sfg-workflow` routes to the right phase.
+4. Retrieve the baseline metadata (read-only) and build the automation map. Run inside a Salesforce DX project (`sfdx-project.json`); add the standard objects the org customises to `manifest/baseline-package.xml` first.
+   ```bash
+   python3 tools/org_limits.py show <alias>
+   sf project retrieve start --manifest manifest/baseline-package.xml --target-org <alias>
+   python3 tools/system_map.py generate
+   ```
+   Check the retrieve output for types that refused `*` and list those by name (`sf org list metadata --metadata-type <Type> --target-org <alias>`). Use `tools/sf-safe` instead of `sf` if your AI tool has no org-guard hook.
+5. In Claude: "where are we?" → `sfg-workflow` routes to the right phase.
 
 ## Automated pipeline
 Runs on your machine; GitHub only receives the pushed branch and the PR. Design: `workflow/processes/automated-pipeline.md`.

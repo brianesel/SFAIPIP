@@ -322,3 +322,28 @@ class OrgLimitsGuardTest(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BaselineManifestTest(Base):
+    def test_copied_valid_and_retrieve_is_read_only(self):
+        import xml.etree.ElementTree as ET
+        sys.path.insert(0, str(PKG / "tools"))
+        from org_guard import classify
+        f = self.root / "manifest/baseline-package.xml"
+        self.assertTrue(f.exists(), "init_project.py copies the baseline manifest")
+        ns = {"m": "http://soap.sforce.com/2006/04/metadata"}
+        pkg = ET.parse(f).getroot()
+        names = [t.findtext("m:name", namespaces=ns) for t in pkg.findall("m:types", ns)]
+        self.assertEqual(len(names), len(set(names)), "each type once")
+        for t in pkg.findall("m:types", ns):
+            self.assertTrue(t.findall("m:members", ns), t.findtext("m:name", namespaces=ns))
+        for needed in ("ApexClass", "ApexTrigger", "Flow", "Workflow", "CustomObject", "LightningComponentBundle",
+                       "PermissionSet"):
+            self.assertIn(needed, names, "system_map.py and scoring read this type")
+        objects = [m.text for t in pkg.findall("m:types", ns) if t.findtext("m:name", namespaces=ns) == "CustomObject"
+                   for m in t.findall("m:members", ns)]
+        self.assertIn("*", objects)
+        self.assertIn("Account", objects, "standard objects are named; * does not match them")
+        self.assertRegex(pkg.findtext("m:version", namespaces=ns), r"^\d+\.0$")
+        kind, _ = classify(["project", "retrieve", "start", "--manifest", str(f), "--target-org", "eval"])
+        self.assertEqual(kind, "read")

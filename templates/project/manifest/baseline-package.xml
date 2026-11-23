@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Baseline retrieve manifest: what evaluation (01, step 2) and project setup pull from the org, read-only.
+  Covers what system_map.py, score.py and the build guides need: code, automation, data model, access, UI,
+  integration and agents.
+
+  How to run it: README of the pipeline package, "Start a project" step 4 (sf project retrieve start with this
+  manifest, after org_limits.py show; sf-safe if your AI tool has no org-guard hook).
+  No double hyphens in this comment: XML forbids them, so command flags are written out in the README only.
+
+  Rules this file relies on (Metadata API Developer Guide, "Sample package.xml Manifest Files" and "Profile"):
+  - `*` on CustomObject does not match standard objects. Name every standard object the org customises;
+    retrieving a standard object returns its custom fields, customisable standard fields, validation rules,
+    record types, list views and other child components.
+  - Profiles and permission sets only return permissions for components in the same retrieve, so keep
+    PermissionSet / Profile in this file together with the objects, classes and pages.
+  - Not every type accepts `*`. If the retrieve output warns about a type, list its members by name
+    (sf org list metadata, see the README step).
+  Not included: reports, dashboards, email templates and documents (folder-based, no `*`); add them by folder
+  when a ticket needs them.
+
+  Set <version> to the project's sourceApiVersion (sfdx-project.json).
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <!-- Code -->
+    <types><members>*</members><name>ApexClass</name></types>
+    <types><members>*</members><name>ApexTrigger</name></types>
+    <types><members>*</members><name>ApexPage</name></types>
+    <types><members>*</members><name>ApexComponent</name></types>
+    <types><members>*</members><name>LightningComponentBundle</name></types>
+    <types><members>*</members><name>AuraDefinitionBundle</name></types>
+    <types><members>*</members><name>StaticResource</name></types>
+
+    <!-- Data model: all custom objects (incl. platform events, custom metadata types) + named standard objects -->
+    <types>
+        <members>*</members>
+        <members>Account</members>
+        <members>Contact</members>
+        <members>Lead</members>
+        <members>Opportunity</members>
+        <members>OpportunityLineItem</members>
+        <members>Case</members>
+        <members>Task</members>
+        <members>Event</members>
+        <members>Campaign</members>
+        <members>Product2</members>
+        <members>Pricebook2</members>
+        <members>Order</members>
+        <members>Contract</members>
+        <members>Asset</members>
+        <members>User</members>
+        <name>CustomObject</name>
+    </types>
+    <types><members>*</members><name>CustomMetadata</name></types>
+    <types><members>*</members><name>GlobalValueSet</name></types>
+
+    <!-- Automation -->
+    <types><members>*</members><name>Flow</name></types>
+    <types><members>*</members><name>Workflow</name></types>
+    <types><members>*</members><name>AssignmentRules</name></types>
+
+    <!-- Access -->
+    <types><members>*</members><name>PermissionSet</name></types>
+    <types><members>*</members><name>PermissionSetGroup</name></types>
+    <types><members>*</members><name>MutingPermissionSet</name></types>
+    <types><members>*</members><name>CustomPermission</name></types>
+    <types><members>*</members><name>Profile</name></types>
+    <types><members>*</members><name>SharingRules</name></types>
+    <types><members>*</members><name>Group</name></types>
+    <types><members>*</members><name>Queue</name></types>
+
+    <!-- UI -->
+    <types><members>*</members><name>Layout</name></types>
+    <types><members>*</members><name>FlexiPage</name></types>
+    <types><members>*</members><name>QuickAction</name></types>
+    <types><members>*</members><name>CustomApplication</name></types>
+    <types><members>*</members><name>CustomTab</name></types>
+
+    <!-- Integration -->
+    <types><members>*</members><name>NamedCredential</name></types>
+    <types><members>*</members><name>ExternalCredential</name></types>
+    <types><members>*</members><name>ConnectedApp</name></types>
+    <types><members>*</members><name>RemoteSiteSetting</name></types>
+    <types><members>*</members><name>CspTrustedSite</name></types>
+
+    <!-- Agents (Winter '26+ orgs: topics and actions inside an agent come with GenAiPlannerBundle) -->
+    <types><members>*</members><name>Bot</name></types>
+    <types><members>*</members><name>GenAiPlannerBundle</name></types>
+    <types><members>*</members><name>GenAiPlugin</name></types>
+    <types><members>*</members><name>GenAiFunction</name></types>
+
+    <version>68.0</version>
+</Package>
