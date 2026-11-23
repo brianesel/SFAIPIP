@@ -1,4 +1,4 @@
-# SF AI development pipeline — v0.17
+# SF AI development pipeline — v0.18
 
 > This is how I work,
 > So I force my agents to follow.

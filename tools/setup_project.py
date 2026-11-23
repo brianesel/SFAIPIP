@@ -312,6 +312,50 @@ def retrieve(root, alias):
         return manual_retrieve_help(root, alias, ["the retrieve command failed (see its error above)"])
     run(root, py, str(PKG / "tools/system_map.py"), "generate", "--project", str(root))
     print("Check the retrieve output above for types that refused `*` and list those by name.")
+    return True
+
+
+STEPS = ["Copy the project files", "Answer the project questions", "Write the config and the DX project",
+         "Log in to the orgs", "Retrieve the baseline metadata", "Check the project (doctor)"]
+
+
+class Progress:
+    MARK = {"done": "[x]", "skipped": "[-]", "failed": "[!]", "todo": "[ ]"}
+
+    def __init__(self):
+        self.state = ["todo"] * len(STEPS)
+
+    def finish(self, n, state="done", note=""):
+        self.state[n - 1] = state
+        nxt = next((i for i, s in enumerate(self.state) if s == "todo"), None)
+        print("\n── Setup progress " + "─" * 30)
+        for i, (name, s) in enumerate(zip(STEPS, self.state)):
+            mark = "[>]" if i == nxt else self.MARK[s]
+            print(f" {mark} {i + 1}. {name}" + (f" ({s})" if s in ("skipped", "failed") else ""))
+        print(f"{state.capitalize()}: step {n}/{len(STEPS)}, {STEPS[n - 1]}" + (f" ({note})" if note else "") + ".")
+        print(f"Next: step {nxt + 1}, {STEPS[nxt]}." if nxt is not None else "Next: setup is complete.")
+        print("─" * 48)
+
+
+def congrats(root, a, prog):
+    todo = []
+    if prog.state[3] != "done":
+        todo.append("Log in to the orgs: `sf org login web --alias <alias> --instance-url <url>` (you sign in, in the browser).")
+    if prog.state[4] != "done" and a["source_alias"]:
+        todo.append(f"Retrieve the baseline: rerun this setup, or follow the manual retrieve in the README (org '{a['source_alias']}').")
+    todo.append("Still for humans: decide the architecture cards in docs/decisions/ARCH-*.md "
+                "(structure level, trigger framework, ...) with the named decider.")
+    if a["path"] == "existing-org":
+        todo.append("Assess the existing org (read-only): in Claude Code, /sfg-assess, which scores it and writes docs/wiki/.")
+    else:
+        todo.append("Start discovery: in Claude Code, /sfg-discover, which asks the business questions and logs them in docs/design/.")
+    todo += ["Ask \"where are we?\" (/sfg-workflow) any time to see the phase and the next step.",
+             "Add UAT personas and fill approval in guardrails.project.yaml when the customer is ready (humans approve, never the AI).",
+             "Commit the setup: `git add -A && git commit -m \"Set up SF AI pipeline\"`."]
+    print("\n🎉 Congratulations, the setup is done!" + (" (some steps were skipped; they come first below)" if prog.state[3:5] != ["done", "done"] else ""))
+    print(f"Project: {root}\nSuggested next actions:")
+    for i, t in enumerate(todo, 1):
+        print(f"  {i}. {t}")
 
 
 def main():
@@ -326,27 +370,39 @@ def main():
     root = Path(pos[0] if pos else ".").expanduser().resolve()
 
     print(f"Project: {root}")
+    prog = Progress()
     init_project.init(root)
+    prog.finish(1)
 
     cfg = yaml.safe_load((root / "guardrails.project.yaml").read_text()) or {}
     a = collect(cfg, answers)
     validate(a)
+    prog.finish(2)
+
     write_config(root, a)
     ensure_dx_project(root)
     add_standard_objects(root, a["standard_objects"])
+    prog.finish(3)
 
     if "--no-login" not in flags and ask("login", "\nLog in to the orgs now?", True, answers):
         login(root, a, answers)
+        prog.finish(4)
+    else:
+        prog.finish(4, "skipped", "run `sf org login web --alias <alias>` yourself, then rerun")
+
     if a["source_alias"] and "--no-retrieve" not in flags and \
             ask("retrieve", f"Retrieve the baseline metadata from '{a['source_alias']}' now (read-only)?", True, answers):
         if not logged_in(root, a["source_alias"]):
+            prog.finish(5, "failed", f"'{a['source_alias']}' is not logged in")
             sys.exit(f"'{a['source_alias']}' is not logged in: run `sf org login web --alias {a['source_alias']}` and rerun")
-        retrieve(root, a["source_alias"])
+        ok = retrieve(root, a["source_alias"])
+        prog.finish(5, "done" if ok else "skipped", "" if ok else "see the manual commands above")
+    else:
+        prog.finish(5, "skipped", "no source org" if not a["source_alias"] else "rerun without --no-retrieve when logged in")
 
     run(root, sys.executable, str(PKG / "tools/doctor.py"), "--project", str(root), check=False)
-    print("\nStill for humans: architecture decisions (docs/decisions/ARCH-*.md), UAT personas, and approval in "
-          "guardrails.project.yaml. Next: start Claude Code in the project and ask \"where are we?\".")
-
+    prog.finish(6)
+    congrats(root, a, prog)
 
 if __name__ == "__main__":
     main()

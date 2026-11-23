@@ -404,6 +404,19 @@ class SetupProjectTest(unittest.TestCase):
         self.assertTrue(json.loads((self.root / "sfdx-project.json").read_text())["sourceApiVersion"])
         self.assertTrue((self.root / ".git/hooks/pre-commit").exists())
 
+    def test_reports_progress_after_every_step(self):
+        out = self.setup(self.ANSWERS).stdout
+        self.assertEqual(out.count("Setup progress"), 6, out)
+        self.assertIn("Done: step 1/6, Copy the project files", out)
+        self.assertIn("Next: step 2, Answer the project questions", out)
+        self.assertIn(" [-] 4. Log in to the orgs (skipped)", out)
+        self.assertIn("Skipped: step 5/6, Retrieve the baseline metadata", out)
+        self.assertIn("Next: setup is complete.", out)
+        self.assertIn("Congratulations, the setup is done!", out)
+        self.assertIn("Suggested next actions:", out)
+        self.assertIn("/sfg-assess", out, "existing org → assessment is suggested")
+        self.assertIn("Log in to the orgs:", out, "skipped login is suggested first")
+
     def test_dx_project_is_ready_for_the_cli(self):
         (self.root).mkdir(exist_ok=True)
         (self.root / "sfdx-project.json").write_text(json.dumps({"packageDirectories": [
