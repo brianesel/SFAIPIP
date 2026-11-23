@@ -48,7 +48,7 @@ An established org style wins over this table (PR-06); record the choice in the 
 ## UI text and translations
 - Custom labels hold text used in components, Flows and Apex messages shown to users; LWC imports them from `@salesforce/label/c.<LabelName>`.
 - Write the base-language text first, then translate through the Translation Workbench; one label per meaning, not per screen, so a word changes in one place.
-- Labels follow the project's text style (sentence case, no internal codes); check it before handing over to test, because Jest and deploy checks don't read the screen [med: field report: a project where all tests passed while 7 of 12 labels had the wrong case].
+- Labels follow the project's text style (no internal codes); review the text on screen before handing over to test.
 - Never concatenate translated fragments into a sentence; use one label with placeholders and format it in code.
 
 ## Performance checklist

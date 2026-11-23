@@ -11,9 +11,9 @@ Sources: see end. Confidence: non-negotiables [high]; option comparison [med] (f
 | 3 | Same-record field updates in **before** context; related records in **after** | before-save avoids extra DML and re-running the save order | review; Salesforce record-triggered decision guide |
 | 4 | Standard bypass: per handler/action and global, switchable without deploy (Custom Metadata or Custom Permission), used for data loads and integration users | data migrations and incident fixes must not fire business logic | review; bypass test |
 | 5 | Recursion control by design: act only on records whose relevant fields changed; track processed Ids per context — never a single static Boolean | static Booleans silently skip the second chunk of 200 in bulk operations | review; bulk 251+ test |
-| 6 | No callouts in trigger context; hand off to Queueable / Platform Event | callouts are not allowed after pending DML | `flow:TriggerCallout` for Flows; review for Apex |
+| 6 | No callouts in trigger context; hand off to Queueable / Platform Event. Enqueue async work from a trigger only when it is needed (callouts, heavy work), filtered to the records that need it; no Batch Apex started from a trigger unless it provably stays within the batch-job limit under bulk loads and mass updates [verified, Apex Developer Guide "Batch Apex": "use extreme care"] | callouts are not allowed after pending DML; async work started from triggers adds error-handling cases and limit risk [verified, Salesforce Architects "Record-Triggered Automation" decision guide, "exercise caution when triggering asynchronous processes"] | `flow:TriggerCallout` for Flows; review for Apex |
 | 7 | User-facing errors via `addError` on the record; no swallowed exceptions | users and integrations need record-level outcomes | `pmd:EmptyCatchBlock`; review |
-| 8 | Flow and Apex on the same object+event: order is explicit and documented (pattern register) | mixed paradigms without order = double writes, unpredictable results | PR-06; Execution Map; rubric `automation.double_write_fields` |
+| 8 | **One entry mechanism per object**: record-triggered Flow or an Apex trigger, not both. A mix is an exception with an ADR, and then the order is explicit and documented (pattern register) | Salesforce: "use one mechanism as your entry point… try to avoid mixing Flow and Apex triggers" [verified, Salesforce Architects "Record-Triggered Automation" decision guide]; mixed paradigms without order = double writes, unpredictable results | PR-06; Execution Map; rubric `automation.double_write_fields` |
 | 9 | Tests: bulk 251+ (two trigger chunks), bypass on/off, recursion, one per handler branch | proves rules 2, 4, 5 | tests rubric |
 
 ## Options (ARCH-001)
@@ -36,7 +36,9 @@ Sources: see end. Confidence: non-negotiables [high]; option comparison [med] (f
 | A framework exists but is used inconsistently | present: keep-existing + migration items vs switch; human decides |
 | **No framework exists yet** | **always ask.** The AI fills ARCH-001 with project facts and the trade-offs of A, B, C — no default, no recommendation as the answer — and a named human chooses |
 
-Signals to show the human (not a verdict): the project's structure level (ARCH-007: Lean → A, Standard → A or B, Enterprise → C); small team + low density favours A's simplicity; Flow + Apex mixed on busy objects favours B's ordering and Setup bypass; multi-team / ISV / existing fflib favours C.
+Signals to show the human (not a verdict), on two axes:
+- **Team — structure level** (ARCH-007): Lean → A, Standard → A or B, Enterprise → C or B. Small team + low density favours A's simplicity; multi-team / ISV / existing fflib favours C.
+- **Object — automation density** (next section): a high-density object where Flow logic stays next to Apex favours B at any level, because B is the only option that runs Flows inside the framework, so the object keeps one entry point (rule 8) without an ADR exception. C stays the signal there only when the codebase already uses fflib or the product is a packaged app.
 
 ## Automation density (Salesforce guidance, 2026)
 Salesforce's record-triggered decision guide now ranks Flow vs Apex by **automation density**: number of automations per object, record volume (UI vs batch/integration scale), and dependency sprawl (cascades into other objects; around five or more related objects counts as high). High density → code-based framework with strict control; low density → declarative-first is fine. Evaluation (01) measures this per busy object; the result feeds ARCH-001.
@@ -51,4 +53,5 @@ HG-02, HG-06, HG-07 + analyzer map; project rule template (after ARCH-001 is cho
 - Kevin O'Hara, sfdc-trigger-framework — github.com/kevinohara80/sfdc-trigger-framework (fork with docs: github.com/dschach/salesforce-trigger-framework)
 - Mitch Spano, Apex Trigger Actions Framework — github.com/mitchspano/apex-trigger-actions-framework
 - Apex Enterprise Patterns, fflib-apex-common — github.com/apex-enterprise-patterns/fflib-apex-common; Trailhead "Apex Enterprise Patterns: Domain & Selector Layers"
+- Apex Developer Guide "Batch Apex" — developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_batch.htm
 - Salesforce Architects, Record-Triggered Automation Decision Guide (2026 refresh) and blog "Record-Triggered Automation: Apex or Flow?"

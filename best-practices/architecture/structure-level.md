@@ -15,7 +15,7 @@ Confidence: level contents [med] (our synthesis of common Salesforce practice; t
 | | **Lean** | **Standard** | **Enterprise** |
 |---|---|---|---|
 | Typical fit | solo / small team, low–medium automation density, few integrations | small or growing team, busy objects, several integrations, handover expected | multi-team, ISV / packaged, existing fflib codebase |
-| Trigger (ARCH-001 signal, not the decision) | minimal handler (A) | handler with metadata bypass (A or B) | domain layer (C) |
+| Trigger (ARCH-001 signal, not the decision) | minimal handler (A) | handler with metadata bypass (A or B) | domain layer (C), or metadata-driven actions (B) on busy objects that keep Flow logic; see `trigger-framework.md` signals |
 | SOQL | in the service; moves to a selector when a second class needs the same query | selectors for shared or busy objects | selectors for all objects |
 | DML | in the service | in the service; unit of work where several objects are written together | unit of work |
 | Interfaces / DI | callouts and true test seams only (Stub API, `@TestVisible`) | callouts, time, user context, selectors on busy objects | all data access and external systems |

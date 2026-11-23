@@ -11,7 +11,7 @@ Apex classes and triggers written or changed in a ticket: services, selectors, d
 |---|---|---|---|
 | 1 | **Bulk by signature.** Public methods take `List`/`Set`/`Map`; a single-record overload only wraps the bulk method. No SOQL, DML, callout or `Database.*` call inside a loop | governor limits count per transaction, and a trigger receives up to 200 records per chunk [high, Apex Developer Guide "Triggers and Bulk Requests"] | HG-02; `pmd:OperationWithLimitsInLoop`; `sfge:AvoidDatabaseOperationInLoop` |
 | 2 | **Only touch what changed.** Compare with `Trigger.oldMap` (or prior state) before adding a record to a query filter or update list | fewer rows, less CPU, no recursion from no-op updates | review; bulk + recursion tests (`trigger-framework.md` rule 5) |
-| 3 | **Access is explicit on every database call.** `WITH USER_MODE` / `AccessLevel.USER_MODE` by default; `SYSTEM_MODE` only with a comment saying why. `AccessLevel.SYSTEM_MODE` lifts CRUD/FLS, **not** record sharing: sharing comes from the class keyword [high, Apex Developer Guide "Enforce User Mode for Database Operations"] | the v67.0 defaults change silently what un-annotated code returns | HG-01; `pmd:ApexCRUDViolation`; `sfge:ApexFlsViolation`; `pmd:AvoidSecurityEnforcedOldApiVersion` |
+| 3 | **Access is explicit on every database call.** `WITH USER_MODE` / `AccessLevel.USER_MODE` by default; `SYSTEM_MODE` only with a comment saying why. `AccessLevel.SYSTEM_MODE` lifts CRUD/FLS, **not** record sharing: sharing comes from the class keyword [high, Apex Reference "AccessLevel Class"; Apex Developer Guide "Set an Access Mode for Database Operations"] | the v67.0 defaults change silently what un-annotated code returns | HG-01; `pmd:ApexCRUDViolation`; `sfge:ApexFlsViolation`; `pmd:AvoidSecurityEnforcedOldApiVersion` |
 | 4 | **Every class declares sharing.** Entry points (`@AuraEnabled`, REST, invocable) `with sharing`; services and selectors `inherited sharing`; `without sharing` only in a small inner or helper class with a recorded reason (ADR) | an undeclared class behaves differently by API version; elevated access must be narrow and visible | HG-06; `pmd:ApexSharingViolations`; `sfge:DatabaseOperationsMustUseWithSharing` |
 | 5 | **Layers keep their job.** Trigger → handler (routing) → service (orchestration) → domain (rules on in-memory records) and selector (all SOQL); DML via the service or unit of work. Follow the pattern register for the area | the same logic must run from a trigger, Flow, LWC, batch or agent without copies | PR-06; rubric `design.layering`; `pmd:AvoidLogicInTrigger` (HG-07) |
 | 6 | **No hard-coded IDs, endpoints, secrets or business literals.** Record types by `DeveloperName` (`Schema.SObjectType.X.getRecordTypeInfosByDeveloperName()`), queues by `DeveloperName` + `Type = 'Queue'`, thresholds in Custom Metadata, endpoints in Named Credentials | IDs differ per org; literals hide business rules | HG-03; `pmd:AvoidHardcodingId`; `pmd:ApexSuggestUsingNamedCred`; `../architecture/configuration.md` |
@@ -33,10 +33,14 @@ Per-transaction limits are the reason for rules 1–2. Common ones [high, Apex D
 | CPU time | 10,000 ms | 60,000 ms |
 | Heap size | 6 MB | 12 MB |
 
+**Design target: stay under 70 % of each limit in normal use**, keeping 30 % for spikes and data growth [verified, Salesforce Well-Architected "Reliability"]. The bulk test (251+ records) should show the margin, e.g. with `Limits.getQueries()` / `Limits.getCpuTime()` asserted or logged.
+
 Practices [high, sf-skills `platform-apex-generate`]:
 - Build `Map<Id, SObject>` from a query in one step; group children with `Map<Id, List<SObject>>` built in one loop; use `Set.contains()` for membership.
 - Fetch parent + children in one query with a relationship subquery; use `AggregateResult` for counts and sums.
 - Read Custom Metadata with `getAll()` / `getInstance()`, not SOQL; cache per transaction in a `private static Map`, lazily filled.
+- Large result sets: iterate with a SOQL for-loop (`for (List<Account> chunk : [SELECT …])`), which works in batches of 200 and keeps heap down; mass updates beyond that belong in Batch Apex [verified, Apex Developer Guide "Running Apex within Governor Execution Limits" and "Working with Very Large SOQL Queries"].
+- `@AuraEnabled` methods return typed objects (a class with `@AuraEnabled` properties, sObjects, lists, maps), not a JSON string built with `JSON.serialize`: the framework already serializes the return value [verified, Aura Components Developer Guide "Custom Apex Class Types"], so a string is serialized twice and costs heap [med, Salesforce Ben "12 Salesforce Apex Best Practices"].
 - Describe calls: request only what you need (`pmd:EagerlyLoadedDescribeSObjectResult`, `sfge:AvoidMultipleMassSchemaLookups`).
 - Queries in a trigger path must be selective on large objects (`../architecture/data-model-ldv.md`); a query with no filter or limit is flagged by `pmd:AvoidNonRestrictiveQueries`.
 - For hot paths, assert headroom in the bulk test: `Assert.isTrue(Limits.getQueries() < Limits.getLimitQueries(), '...')`.
@@ -61,7 +65,7 @@ Method names start with a verb; maps are `<value>By<key>` (`accountsById`); no a
 
 ## Exceptions at the boundaries
 - **Trigger:** user-correctable problems → `addError` on the record or field, in the users' language (Custom Label). Do not throw from deep code for something a user can fix.
-- **`@AuraEnabled`:** catch, log the cause, rethrow as `AuraHandledException` with a user-safe message. Call `setMessage(msg)` on it, otherwise tests and logs read "Script-thrown exception" [med: observed in delivery projects]. Throw `AuraHandledException` only at this boundary, never from services or batch.
+- **`@AuraEnabled`:** catch, log the cause, rethrow as `AuraHandledException` with a user-safe message; unlike an unhandled exception, it returns no stack trace to the client [verified, LWC Developer Guide "Handle Errors from Apex"]. Throw `AuraHandledException` only at this boundary, never from services or batch.
 - **Invocable:** return errors in the response; throw only for unrecoverable cases (that sends the Flow down its fault path).
 - **Async:** Finalizer or `finish()` records the outcome; retries only for transient errors, with a cap (`async-processing.md` rule 5).
 - Preserve the cause: `new InvoiceServiceException('context', cause)`. No personal data in messages or logs.
@@ -69,7 +73,7 @@ Method names start with a verb; maps are `<value>By<key>` (`accountsById`); no a
 ## Test data and access in tests
 - One `TestDataFactory`: bulk-first methods (`createAccounts(Integer count, Boolean doInsert)`), single-record methods delegate to them; set every field that validation rules require; make values unique where duplicate rules match [high, sf-skills `platform-apex-test-generate`].
 - Record types by `DeveloperName`; standard price book via `Test.getStandardPricebookId()`.
-- **Non-admin user per access-relevant test:** create a user on a minimum-access profile, assign the ticket's permission set (group) in the test, run the act inside `System.runAs`. `runAs` applies the user's record sharing; CRUD/FLS are applied only where the code runs in user mode [high, Apex Developer Guide "Using the runAs Method"]. Test both without the permission set (blocked or empty) and with it. Details: `permissions-access.md`.
+- **Non-admin user per access-relevant test:** create a user on a minimum-access profile, assign the ticket's permission set (group) in the test, run the act inside `System.runAs`. Inside `runAs` the user's sharing rules and object- and field-level permissions are enforced [high, Apex Developer Guide "Using the runAs Method"]; an operation set to system mode still ignores CRUD/FLS [high, Apex Reference "AccessLevel Class"]. Test both without the permission set (blocked or empty) and with it. Details: `permissions-access.md`.
 - **Mixed DML:** inserting setup objects (User, `PermissionSetAssignment`, Group membership) and regular records in one transaction fails with `MIXED_DML_OPERATION`; create setup records inside `System.runAs(new User(Id = UserInfo.getUserId()))` [high, Apex Developer Guide "sObjects That Cannot Be Used Together in DML Operations"].
 - Callouts: `Test.setMock` before `Test.startTest()`; one success and one error response at least.
 - Assertions use the `Assert` class with a message (`pmd:ApexAssertionsShouldIncludeMessage`); expected values come from the setup, not magic numbers.
@@ -90,7 +94,13 @@ SOQL or DML in loops · single-record public methods · logic in the trigger bod
 - Rubric `code-design.yaml` and `tests.yaml` score the rest at evaluation (01) and DoD (G4).
 
 ## Sources
-- Apex Developer Guide: Execution Governors and Limits; Triggers and Bulk Requests; Enforce User Mode for Database Operations; Using the runAs Method; sObjects That Cannot Be Used Together in DML Operations — developer.salesforce.com/docs/atlas.en-us.apexcode.meta
+- Apex Developer Guide: Execution Governors and Limits; Triggers and Bulk Requests; Set an Access Mode for Database Operations; Using the runAs Method; sObjects That Cannot Be Used Together in DML Operations — developer.salesforce.com/docs/atlas.en-us.apexcode.meta
+- Apex Developer Guide "Running Apex within Governor Execution Limits"; "Working with Very Large SOQL Queries" — developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_limits_tips.htm
+- Aura Components Developer Guide "Custom Apex Class Types" — https://developer.salesforce.com/docs/platform/aura-platform/guide/ref-attr-types-apex.html
+- Salesforce Well-Architected "Reliability" (governor limit headroom) — https://architect.salesforce.com/docs/architect/well-architected/guide/reliability.html
+- Salesforce Ben "12 Salesforce Apex Best Practices" — https://www.salesforceben.com/12-salesforce-apex-best-practices/ (community source)
+- Apex Reference Guide "AccessLevel Class" — developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_AccessLevel.htm
+- LWC Developer Guide "Handle Errors from Apex" — developer.salesforce.com/docs/platform/lwc/guide/apex-error-handling.html
 - Salesforce Summer '26 release notes (API v67.0 Apex security defaults), summarised in `../architecture/security-sharing.md`
 - forcedotcom/sf-skills `platform-apex-generate`, `platform-apex-test-generate` (cloned 2026-11-20, commit 431c50f)
 - Salesforce Code Analyzer v5 rule inventory (verified 2026-11-20)
